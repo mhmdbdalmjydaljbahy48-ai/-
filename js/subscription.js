@@ -11,7 +11,10 @@ const SubPage = {
   render() {
     const st = DB.subscriptionStatus(this.client);
     document.getElementById('expiry').textContent = UI.fmtDate(this.client.expiry_date);
-    document.getElementById('remain').textContent = st.ok ? st.days + ' يوم' : 'منتهي';
+    
+    // ✅ التعديل 6: استخدام دالة الوقت المتبقي هنا أيضاً
+    document.getElementById('remain').textContent = st.ok ? UI.fmtRemaining(this.client.expiry_date) : 'منتهي ⛔';
+    
     const badge = document.getElementById('statusBadge');
     if (st.ok) badge.innerHTML = '<span class="badge badge-success">✅ ساري</span>';
     else if (st.blocked) badge.innerHTML = '<span class="badge badge-danger">⛔ موقوف</span>';
