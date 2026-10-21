@@ -4,22 +4,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('year').textContent = new Date().getFullYear();
 
   const st = DB.subscriptionStatus(client);
-  if (!st.ok) { location.href = 'subscription.html'; return; }
+  
+  // ✅ التعديل 4: إظهار نافذة التجديد المنبثقة عند الانتهاء
+  if (!st.ok) {
+    UI.modal({
+      title: '⛔ انتهى الاشتراك التجريبي',
+      content: `<div style="text-align:center">
+                  <div style="font-size:3rem;margin-bottom:15px">⏳</div>
+                  <p class="mb-3">لقد انتهت فترة التجربة المجانية (شهر واحد).<br>يرجى تجديد الاشتراك للاستمرار في استخدام النظام.</p>
+                  <a href="subscription.html" class="btn btn-primary btn-block mb-3">🔄 تجديد الاشتراك الآن</a>
+                </div>`,
+      onOpen: (el) => { el.querySelector('[data-close]').style.display = 'none'; }
+    });
+    setTimeout(() => location.href = 'subscription.html', 4000);
+    return;
+  }
 
   document.getElementById('userAvatar').textContent = (client.name || '?').charAt(0);
   document.getElementById('userName').textContent = client.name || '—';
   document.getElementById('userRole').textContent = client.account_type === 'تجاري' ? client.shop_name || 'تاجر' : (client.account_type || 'غير محدد');
 
-  // ✅ إصلاح #44: إظهار زر لوحة الإدارة للمدير
   if (DB.isAdmin(client.num) || client.is_admin) {
     document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'flex');
   }
 
   document.getElementById('welcomeName').textContent = client.name;
-  document.getElementById('daysLeft').textContent = Math.max(0, st.days || 0);
+  
+  // ✅ التعديل 3: عرض الوقت المتبقي بالساعات والدقائق
+  document.getElementById('daysLeft').textContent = UI.fmtRemaining(client.expiry_date);
   document.getElementById('subStatus').textContent = `ينتهي اشتراكك في ${UI.fmtDate(client.expiry_date)}`;
 
-  // تحقق التذكيرات (D1/D3/D7)
   const reminder = DB.checkRemindersOnLogin(client.num);
   if (reminder) {
     setTimeout(() => {
@@ -31,12 +45,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 1500);
   }
 
-  // إظهار الإشعارات المعلقة
   UI.showPendingNotifications();
 
-  if (!client.account_type) {
-    askAccountType(client);
-  }
+  if (!client.account_type) { askAccountType(client); }
 
   const sales = DB.getCashSales(client.num).concat(DB.getNetworkSales(client.num));
   const today = new Date().toDateString();
@@ -76,9 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               DB.updateClient(client.num, { account_type: 'فردي' });
               UI.toast('✅ تم اعتماد حسابك كفردي', 'success');
               setTimeout(() => location.reload(), 400);
-            } else {
-              openShopSetup(client);
-            }
+            } else { openShopSetup(client); }
           };
         });
       }
