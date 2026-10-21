@@ -1,8 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v6)
-   تشمل: PBKDF2، brute-force، دمج الديون، الأرشفة،
-   الإشعارات، التذكيرات، ترحيل تلقائي، إدارة متعددة،
-   التقارير الشاملة، دعم الباركود، + تنظيف الإيميلات
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v7)
+   (تحقق مرن من الإيميل + دعم كامل للباركود والتقارير)
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
@@ -22,6 +20,12 @@ const DB = (() => {
     paymentProofs: 'payment_proofs',
     adminList: 'admin_list',
   };
+
+  // دالة مساعدة لتنظيف النصوص من المسافات والرموز الخفية
+  function cleanText(str) {
+    if (!str) return '';
+    return String(str).replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069\u00A0]/g, '');
+  }
 
   function get(key, fallback) {
     try {
@@ -99,7 +103,7 @@ const DB = (() => {
   const DEFAULT_SETTINGS = {
     month_price: 0, trial_months: 1,
     registration_mode: 'first_only',
-    email_suffix: '.com',
+    email_suffix: '', // تم إزالة الشرط الصارم للسماح بأي إيميل صحيح
     support_phone_1: '738439579', support_phone_2: '785068462',
     support_country_code: '967',
     support_telegram: 'https://t.me/+967734427533',
@@ -117,12 +121,7 @@ const DB = (() => {
       stored = raw ? JSON.parse(raw) : null;
     } catch { stored = null; }
     const base = (stored && typeof stored === 'object' && !Array.isArray(stored)) ? stored : {};
-    const merged = Object.assign({}, DEFAULT_SETTINGS, base);
-    // ✅ تنظيف الـ suffix من أي مسافات أو رموز خفية
-    if (merged.email_suffix) {
-      merged.email_suffix = String(merged.email_suffix).replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '');
-    }
-    return merged;
+    return Object.assign({}, DEFAULT_SETTINGS, base);
   }
   function setSettings(s) {
     const safe = (s && typeof s === 'object' && !Array.isArray(s)) ? s : {};
@@ -130,7 +129,6 @@ const DB = (() => {
   }
   function updateSettings(patch) {
     const s = Object.assign(getSettings(), patch || {});
-    if (s.email_suffix) s.email_suffix = String(s.email_suffix).replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '');
     setSettings(s); return s;
   }
 
@@ -165,26 +163,21 @@ const DB = (() => {
   function getAllClients() { const a = get(KEYS.clients, []); return Array.isArray(a) ? a : []; }
   function findClient(num) { return getAllClients().find(c => Number(c.num) === Number(num)); }
   function findClientByEmail(email) {
-    const clean = String(email || '').replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '').toLowerCase();
-    return getAllClients().find(c => (c.email || '').replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '').toLowerCase() === clean);
+    const clean = cleanText(email).toLowerCase();
+    return getAllClients().find(c => cleanText(c.email).toLowerCase() === clean);
   }
 
-  // ✅ دالة التحقق المعدلة (تنظف الإيميل قبل الفحص)
+  // ✅ دالة التحقق الجديدة: مرنة جداً وتقبل أي إيميل صالح
   function validateEmail(email, suffix) {
-    const cleanStr = (str) => String(str || '').replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '');
+    let e = cleanText(email);
+    if (!e || e.length > 150) return false;
     
-    let e = cleanStr(email);
-    if (!e || !e.includes('@') || e.length > 150) return false;
+    // التحقق من الصيغة الأساسية (شيء@شيء.شيء)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(e)) return false;
     
-    if (suffix) {
-      const cleanSuffix = cleanStr(suffix);
-      if (cleanSuffix && !e.toLowerCase().endsWith(cleanSuffix.toLowerCase())) return false;
-    }
-    
-    const parts = e.split('@');
-    if (parts.length !== 2) return false;
-    const [local, domain] = parts;
-    return !!(local && domain && domain.includes('.'));
+    // تجاهلنا شرط الـ suffix الصارم لأنه كان يسبب مشاكل في المتصفحات
+    return true;
   }
 
   function getRegistrationMode() { return getSettings().registration_mode || 'first_only'; }
@@ -199,11 +192,12 @@ const DB = (() => {
   async function createClient({ num, name, email, password, months, shop_name, activity_type, location, shop_location, currency, account_type }) {
     const clients = getAllClients();
     if (clients.find(c => Number(c.num) === Number(num))) throw new Error('رقم العميل مستخدم من قبل');
-    // تنظيف الإيميل قبل الحفظ
-    const cleanEmail = String(email || '').replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '');
-    if (clients.find(c => (c.email||'').replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '').toLowerCase() === cleanEmail.toLowerCase())) {
+    
+    const cleanEmail = cleanText(email);
+    if (clients.find(c => cleanText(c.email).toLowerCase() === cleanEmail.toLowerCase())) {
       throw new Error('الإيميل مستخدم من قبل');
     }
+    
     const trial = months !== undefined ? months : getSettings().trial_months || 1;
     const start = now();
     const expiry = addMonths(start, trial);
@@ -885,7 +879,7 @@ const DB = (() => {
 
   return {
     init, get, set, generateId, now, daysBetween, addMonths, addPrecise,
-    hashPassword, verifyPassword,
+    hashPassword, verifyPassword, cleanText,
     norm, parseNum, parseFloatN,
     getSettings, setSettings, updateSettings, getRates, setRates,
     validateEmail, getRegistrationMode, canRegister,
