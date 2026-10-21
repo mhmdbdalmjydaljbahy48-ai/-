@@ -1,6 +1,9 @@
 const Shop = {
   cart: [],
   client: null,
+  _scannerInstance: null,
+  _currentScanTarget: null,
+
   init() {
     this.client = UI.requireLogin();
     if (!this.client || !UI.requireActiveSubscription(this.client)) return;
@@ -28,6 +31,127 @@ const Shop = {
     this.renderRecentInvoices();
     this.updateCalcRates();
   },
+
+  // ═══════════════════════════════════════════════════════════
+  //                    دوال الباركود
+  // ═══════════════════════════════════════════════════════════
+
+  scanBarcode(targetInputId) {
+    if (typeof Html5Qrcode === 'undefined') {
+      UI.toast('❌ مكتبة المسح لم تُحمّل. تحقق من الإنترنت.', 'error');
+      return;
+    }
+    this._currentScanTarget = targetInputId;
+    const modal = document.getElementById('barcodeScannerModal');
+    const statusEl = document.getElementById('scannerStatus');
+    statusEl.innerHTML = '⏳ جاري تشغيل الكاميرا...';
+    modal.style.display = 'grid';
+    setTimeout(() => modal.classList.add('active'), 10);
+
+    // إيقاف أي ماسح سابق
+    if (this._scannerInstance) {
+      try { this._scannerInstance.stop(); } catch(e) {}
+      this._scannerInstance = null;
+    }
+
+    const formats = [
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODE_93,
+      Html5QrcodeSupportedFormats.CODABAR,
+      Html5QrcodeSupportedFormats.ITF,
+      Html5QrcodeSupportedFormats.QR_CODE,
+    ];
+
+    this._scannerInstance = new Html5Qrcode("barcodeReader", { formatsToSupport: formats });
+    this._scannerInstance.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 280, height: 160 } },
+      (decodedText) => this._onScanSuccess(decodedText),
+      () => {}
+    ).then(() => {
+      statusEl.innerHTML = '✅ الكاميرا تعمل — وجّهها نحو الباركود';
+    }).catch((err) => {
+      console.error(err);
+      const msg = String(err || '');
+      if (msg.includes('Permission') || msg.includes('NotAllowed')) {
+        statusEl.innerHTML = '❌ لم يتم السماح باستخدام الكاميرا. افتح الإعدادات واسمح للموقع بالوصول للكاميرا.';
+      } else if (msg.includes('NotFound') || msg.includes('no camera')) {
+        statusEl.innerHTML = '❌ لا توجد كاميرا متاحة على هذا الجهاز. استخدم الإدخال اليدوي.';
+      } else {
+        statusEl.innerHTML = '❌ تعذر تشغيل الكاميرا. استخدم الإدخال اليدوي.<br><small class="text-muted">' + UI.esc(msg.substring(0, 100)) + '</small>';
+      }
+      UI.toast('تعذر فتح الكاميرا. استخدم الإدخال اليدوي.', 'error');
+    });
+  },
+
+  _onScanSuccess(decodedText) {
+    const targetId = this._currentScanTarget;
+    if (targetId) {
+      const input = document.getElementById(targetId);
+      if (input) {
+        input.value = decodedText;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    UI.toast('✅ تم قراءة الباركود: ' + decodedText, 'success');
+    this.closeScanner();
+
+    // إذا كان في حقل المبيعات → أضف للسلة تلقائياً
+    if (targetId === 'saleBarcode') {
+      setTimeout(() => this.addByBarcode(), 200);
+    }
+  },
+
+  closeScanner() {
+    const modal = document.getElementById('barcodeScannerModal');
+    modal.classList.remove('active');
+    setTimeout(() => { modal.style.display = 'none'; }, 200);
+    if (this._scannerInstance) {
+      const inst = this._scannerInstance;
+      this._scannerInstance = null;
+      try {
+        inst.stop().then(() => { try { inst.clear(); } catch(e) {} }).catch(() => {});
+      } catch(e) {}
+    }
+  },
+
+  addByBarcode() {
+    const input = document.getElementById('saleBarcode');
+    const code = (input.value || '').trim();
+    if (!code) return UI.toast('❌ أدخل أو امسح الباركود أولاً', 'error');
+
+    const product = DB.findProductByBarcode(code);
+    if (!product) {
+      UI.toast('❌ لا يوجد منتج بهذا الباركود: ' + code, 'error');
+      return;
+    }
+    if (Number(product.quantity) <= 0) {
+      UI.toast('⚠️ المنتج [ ' + product.product_name + ' ] غير متوفر في المخزون', 'error');
+      return;
+    }
+
+    // اختيار المنتج في القائمة + إضافته للسلة
+    const sel = document.getElementById('prodSelect');
+    const opt = Array.from(sel.options).find(o => Number(o.value) === Number(product.product_id));
+    if (!opt) {
+      UI.toast('⚠️ المنتج غير متاح للبيع (تحقق من المخزون)', 'error');
+      return;
+    }
+    sel.value = product.product_id;
+    document.getElementById('prodQty').value = 1;
+    this.addToCart();
+    input.value = '';
+    input.focus();
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  //                    دوال المتجر الأساسية
+  // ═══════════════════════════════════════════════════════════
 
   loadProductsSelect() {
     const prods = DB.getProducts().filter(p => p.quantity > 0);
@@ -78,7 +202,7 @@ const Shop = {
     }
     this.renderCart();
     document.getElementById('prodQty').value = 1;
-    UI.toast('تمت الإضافة للسلة', 'success');
+    UI.toast('✅ تمت الإضافة: ' + p.product_name, 'success');
   },
 
   renderCart() {
@@ -173,11 +297,12 @@ const Shop = {
   renderProducts(query = '') {
     const grid = document.getElementById('productsGrid');
     const q = String(query || '').toLowerCase().trim();
-    const prods = DB.getProducts().filter(p => !q || (p.product_name || '').toLowerCase().includes(q));
+    const prods = DB.getProducts().filter(p => !q || (p.product_name || '').toLowerCase().includes(q) || (p.barcode || '').toLowerCase().includes(q));
     grid.innerHTML = prods.map(p => `
       <div class="card">
         <h4 class="mb-1" style="color:var(--amber)">${UI.esc(p.product_name)}</h4>
-        <div class="text-muted" style="font-size:.85rem">السعر: ${UI.fmtNum(p.price)} | التكلفة: ${UI.fmtNum(p.purchase_price)}</div>
+        ${p.barcode ? `<div class="barcode-tag">🏷️ ${UI.esc(p.barcode)}</div>` : ''}
+        <div class="text-muted" style="font-size:.85rem;margin-top:6px">السعر: ${UI.fmtNum(p.price)} | التكلفة: ${UI.fmtNum(p.purchase_price)}</div>
         <div class="badge ${p.quantity > 0 ? 'badge-success' : 'badge-danger'} mt-2">المخزون: ${p.quantity}</div>
       </div>`).join('') || '<p class="text-muted">لا توجد منتجات. اذهب لقسم التوريد لإضافة منتجات.</p>';
   },
@@ -276,6 +401,8 @@ const Shop = {
     const cartonPrice = UI.parseNum(fd.get('cartonPrice')) || 0;
     const paid = UI.parseNum(fd.get('paid')) || 0;
     const profit = UI.parseNum(fd.get('profit')) || 0;
+    const barcode = (fd.get('barcode') || '').trim() || null;
+
     const data = {
       client_num: this.client.num, product_name: fd.get('product_name'), merchant_name: fd.get('merchant'),
       number_of_cartons: cartons, inside_carton: inside,
@@ -283,10 +410,18 @@ const Shop = {
       paid_amount: paid, residual_amount: cartons * cartonPrice - paid,
       single_item_price: (cartonPrice / inside) + profit,
       item_cost: cartonPrice / inside, profit_amount: profit,
+      barcode: barcode,
     };
-    DB.createImport(data); UI.toast('✅ تم حفظ التوريد وتحديث المنتجات', 'success');
-    form.reset(); document.getElementById('importSummary').style.display = 'none';
-    this.renderProducts(); this.loadProductsSelect();
+    try {
+      DB.createImport(data);
+      UI.toast('✅ تم حفظ التوريد وتحديث المنتجات', 'success');
+      form.reset();
+      document.getElementById('importBarcode').value = '';
+      document.getElementById('importSummary').style.display = 'none';
+      this.renderProducts(); this.loadProductsSelect();
+    } catch (e) {
+      UI.toast(e.message, 'error');
+    }
   },
 
   updateCalcRates() {
@@ -310,11 +445,8 @@ const Shop = {
   //                    التقارير الشاملة
   // ═══════════════════════════════════════════════════════════
 
-  backToReportMenu() {
-    document.getElementById('reportOutput').innerHTML = '';
-  },
+  backToReportMenu() { document.getElementById('reportOutput').innerHTML = ''; },
 
-  // ── 1. تقارير المنتجات ──
   reportProducts() {
     const prods = DB.getProducts();
     const totalCartons = DB.getTotalCartonsImported(this.client.num);
@@ -329,7 +461,7 @@ const Shop = {
         </div>
         <div class="form-group">
           <label class="form-label">🔍 بحث عن منتج</label>
-          <input class="form-input" placeholder="اكتب اسم المنتج..." oninput="Shop.filterReportProducts(this.value)">
+          <input class="form-input" placeholder="اكتب اسم المنتج أو الباركود..." oninput="Shop.filterReportProducts(this.value)">
         </div>
         <div id="rptProductsList">${this._renderProductsTable(prods)}</div>
         <button class="btn btn-outline mt-3" onclick="Shop.backToReportMenu()">◀ رجوع</button>
@@ -340,7 +472,7 @@ const Shop = {
   _renderProductsTable(prods) {
     if (!prods.length) return '<p class="text-muted">لا توجد منتجات</p>';
     return `<table class="report-table">
-      <thead><tr><th>المنتج</th><th>سعر الشراء</th><th>سعر البيع</th><th>الربح/حبة</th><th>المخزون</th></tr></thead>
+      <thead><tr><th>المنتج</th><th>الباركود</th><th>سعر الشراء</th><th>سعر البيع</th><th>الربح/حبة</th><th>المخزون</th></tr></thead>
       <tbody>${prods.map(p => {
         const q = Number(p.quantity) || 0;
         const c = Number(p.units_per_carton) || 1;
@@ -348,6 +480,7 @@ const Shop = {
         const profit = Number(p.price || 0) - Number(p.purchase_price || 0);
         return `<tr>
           <td><b>${UI.esc(p.product_name)}</b></td>
+          <td>${p.barcode ? '<code>' + UI.esc(p.barcode) + '</code>' : '—'}</td>
           <td>${UI.fmtNum(p.purchase_price)}</td>
           <td>${UI.fmtNum(p.price)}</td>
           <td style="color:var(--success)">${UI.fmtNum(profit)}</td>
@@ -358,11 +491,12 @@ const Shop = {
   },
 
   filterReportProducts(q) {
-    const list = DB.searchProductsByName(q);
+    const list = DB.searchProductsByName(q).concat(
+      DB.getProducts().filter(p => (p.barcode||'').toLowerCase().includes((q||'').toLowerCase()) && !DB.searchProductsByName(q).find(x => x.product_id === p.product_id))
+    );
     document.getElementById('rptProductsList').innerHTML = this._renderProductsTable(list);
   },
 
-  // ── 2. تقارير العملاء ──
   reportCustomers() {
     const custs = DB.getAllCustomersWithBalances(this.client.num);
     const total = custs.length;
@@ -391,7 +525,6 @@ const Shop = {
     document.getElementById('reportOutput').innerHTML = html;
   },
 
-  // ── 3. تقارير المبيعات والاستيراد ──
   reportSales() {
     const analytics = DB.getAdvancedAnalytics(this.client.num);
     const monthImports = DB.getImportsByPeriod(this.client.num, 'month').reduce((s, i) => s + Number(i.full_amount || 0), 0);
@@ -432,7 +565,6 @@ const Shop = {
     document.getElementById('reportOutput').innerHTML = html;
   },
 
-  // ── 4. تقارير الأرباح ──
   reportProfits() {
     const today = DB.getProfitsByPeriod(this.client.num, 'today');
     const month = DB.getProfitsByPeriod(this.client.num, 'month');
@@ -457,7 +589,6 @@ const Shop = {
     document.getElementById('reportOutput').innerHTML = html;
   },
 
-  // ── 5. تقارير الديون ──
   reportDebts() {
     const debts = DB.getShopDebts(this.client.num);
     const totalRemaining = debts.reduce((s, d) => s + Math.max(0, Number(d.debt_amount) - Number(d.paid_amount || 0)), 0);
@@ -495,7 +626,6 @@ const Shop = {
     document.getElementById('reportOutput').innerHTML = html;
   },
 
-  // ── 6. بحث المبيعات ──
   reportSearchSales() {
     let html = `
       <div class="card mb-3">
@@ -576,7 +706,6 @@ const Shop = {
       </div>`;
   },
 
-  // ── 7. حركة المنتجات ──
   reportProductMovement() {
     const best = DB.getBestSellingProduct(this.client.num, 'month');
     const movement = DB.getProductMovement(this.client.num);
@@ -598,13 +727,14 @@ const Shop = {
         </div>
         <h4 class="text-amber mb-2">📦 تفاصيل جميع المنتجات:</h4>
         <table class="report-table">
-          <thead><tr><th>المنتج</th><th>الشراء</th><th>البيع</th><th>الربح/حبة</th><th>مبيعات اليوم</th><th>مبيعات الشهر</th><th>المخزون</th></tr></thead>
+          <thead><tr><th>المنتج</th><th>الباركود</th><th>الشراء</th><th>البيع</th><th>الربح/حبة</th><th>مبيعات اليوم</th><th>مبيعات الشهر</th><th>المخزون</th></tr></thead>
           <tbody>${movement.map(p => {
             const q = Number(p.quantity) || 0;
             const c = Number(p.units_per_carton) || 1;
             const ctn = Math.floor(q / c), loose = q % c;
             return `<tr>
               <td><b>${UI.esc(p.product_name)}</b></td>
+              <td>${p.barcode ? '<code>' + UI.esc(p.barcode) + '</code>' : '—'}</td>
               <td>${UI.fmtNum(p.purchase_price)}</td>
               <td>${UI.fmtNum(p.price)}</td>
               <td style="color:var(--success)">${UI.fmtNum(p.profit_per_unit)}</td>
