@@ -144,9 +144,19 @@ const DB = (() => {
 
   function getAdminList() {
   const list = get(KEYS.adminList, null);
-  if (list && Array.isArray(list)) return list;
-  // ✅ تثبيت رقم حسابك كمدير وحيد
-  const initial = [770712071]; 
+  if (list && Array.isArray(list) && list.length > 0) return list;
+  
+  // ✅ التحقق من الرقم والإيميل معاً
+  const masterNum = 770712071;
+  const masterEmail = 'mhmdbdalmjydaljbahy48@gmail.com';
+  const client = findClient(masterNum);
+  let initial = [];
+  
+  // إذا كان الحساب موجوداً وإيميله يطابق الإيميل المحدد، نضيفه كمدير
+  if (client && cleanText(client.email).toLowerCase() === cleanText(masterEmail).toLowerCase()) {
+    initial = [masterNum];
+  }
+  
   set(KEYS.adminList, initial);
   return initial;
   }
