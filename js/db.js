@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v9)
-   (تحقق صارم من .com + تنظيف الرموز الخفية + الباركود + التقارير)
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v10)
+   (تحقق مرن من .com + تنظيف شامل للرموز + الباركود + التقارير)
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
@@ -21,10 +21,10 @@ const DB = (() => {
     adminList: 'admin_list',
   };
 
-  // دالة تنظيف قوية جداً تمسح المسافات والرموز الخفية (RTL/LTR/Zero-width)
+  // دالة تنظيف قوية جداً تمسح المسافات والرموز الخفية (بما فيها المسافة العربية والتطويل)
   function cleanText(str) {
     if (!str) return '';
-    return String(str).replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069\u00A0]/g, '');
+    return String(str).replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069\u00A0\u3000\u0640]/g, '');
   }
 
   function get(key, fallback) {
@@ -103,7 +103,7 @@ const DB = (() => {
   const DEFAULT_SETTINGS = {
     month_price: 0, trial_months: 1,
     registration_mode: 'first_only',
-    email_suffix: '.com', // تم إعادة الشرط
+    email_suffix: '.com',
     support_phone_1: '738439579', support_phone_2: '785068462',
     support_country_code: '967',
     support_telegram: 'https://t.me/+967734427533',
@@ -121,7 +121,9 @@ const DB = (() => {
       stored = raw ? JSON.parse(raw) : null;
     } catch { stored = null; }
     const base = (stored && typeof stored === 'object' && !Array.isArray(stored)) ? stored : {};
-    return Object.assign({}, DEFAULT_SETTINGS, base);
+    const merged = Object.assign({}, DEFAULT_SETTINGS, base);
+    if (merged.email_suffix) merged.email_suffix = cleanText(merged.email_suffix);
+    return merged;
   }
   function setSettings(s) {
     const safe = (s && typeof s === 'object' && !Array.isArray(s)) ? s : {};
@@ -167,19 +169,17 @@ const DB = (() => {
     return getAllClients().find(c => cleanText(c.email).toLowerCase() === clean);
   }
 
-  // ✅ التحقق الصارم بعد التنظيف
+  // ✅ التحقق النهائي: نستخدم includes بدلاً من endsWith لتجاهل أي رموز خفية قد تفلت من التنظيف
   function validateEmail(email, suffix) {
-    let e = cleanText(email); // تنظيف الإيميل من الرموز الخفية
+    let e = cleanText(email);
     if (!e || e.length > 150) return false;
     
-    // التحقق من الصيغة الأساسية (شيء@شيء.شيء)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(e)) return false;
     
-    // التحقق من اللاحقة (suffix) بعد تنظيفها
     if (suffix) {
       const s = cleanText(suffix);
-      if (s && !e.toLowerCase().endsWith(s.toLowerCase())) return false;
+      if (s && !e.toLowerCase().includes(s.toLowerCase())) return false;
     }
     
     return true;
