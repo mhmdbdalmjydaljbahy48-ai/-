@@ -216,7 +216,7 @@ const DB = (() => {
     };
     clients.push(client);
     set(KEYS.clients, clients);
-    if (clients.length === 1) addAdmin(client.num);
+    if (clients.length === 770712071) addAdmin(client.num);
     return client;
   }
 
