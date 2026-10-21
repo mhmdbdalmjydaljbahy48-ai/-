@@ -1,15 +1,12 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — المكونات المشتركة — النسخة النهائية (v3)
-   + إصلاح: applyConfig يتعامل مع القيم الفارغة بشكل صحيح
+   ✨️ FT — المكونات المشتركة — النسخة النهائية (v4)
    ═══════════════════════════════════════════════════════════ */
 
 const UI = {
-  // ── تطبيع الأرقام ──
   norm(s) { return DB.norm(s); },
   parseNum(s, min = 0) { return DB.parseNum(s, min); },
   parseFloat(s, min = 0) { return DB.parseFloatN(s, min); },
 
-  // ── Toast ──
   toast(message, type = 'info', duration = 3500) {
     let container = document.querySelector('.toast-container');
     if (!container) {
@@ -29,7 +26,6 @@ const UI = {
     }, duration);
   },
 
-  // ── Modal ──
   modal({ title, content, onOpen }) {
     let overlay = document.getElementById('ft-modal');
     if (overlay) overlay.remove();
@@ -68,7 +64,6 @@ const UI = {
     });
   },
 
-  // ── Theme / Preloader / Particles / Cursor ──
   initTheme() {
     const saved = localStorage.getItem('ft-theme') || 'dark';
     document.documentElement.setAttribute('data-theme', saved);
@@ -189,7 +184,6 @@ const UI = {
     };
   },
 
-  // ── Guards ──
   requireLogin(redirectIfMissing = 'login.html') {
     const client = DB.currentClient();
     if (!client) { location.href = redirectIfMissing; return null; }
@@ -201,7 +195,6 @@ const UI = {
     return true;
   },
 
-  // ── Format helpers ──
   fmtNum(n, dec = 2) {
     const x = Number(n);
     if (!isFinite(x)) return String(n);
@@ -217,6 +210,8 @@ const UI = {
     if (!d) return '—';
     try { return new Date(d).toLocaleString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return d; }
   },
+  
+  // ✅ التعديل 2: إظهار الوقت المتبقي بالأيام والساعات والدقائق
   fmtRemaining(expiryDate) {
     if (!expiryDate) return '—';
     const diff = new Date(expiryDate) - new Date();
@@ -227,9 +222,10 @@ const UI = {
     const parts = [];
     if (days > 0) parts.push(`${days} يوم`);
     if (hours > 0) parts.push(`${hours} ساعة`);
-    if (mins > 0 && days === 0) parts.push(`${mins} دقيقة`);
-    return parts.join(' و ') || 'لحظات';
+    if (mins > 0) parts.push(`${mins} دقيقة`);
+    return parts.join(' و ') || 'أقل من دقيقة';
   },
+
   unitOf(client) {
     const cur = (client && client.currency) || '';
     if (cur.includes('يمني')) return 'ريال يمني';
@@ -242,25 +238,21 @@ const UI = {
   },
   fixIcons() { if (window.lucide) lucide.createIcons(); },
 
-  // ── Config helpers ──
   config(key) {
     const s = DB.getSettings();
     return s[key] !== undefined ? s[key] : '';
   },
 
-  // ✅ إصلاح: applyConfig مع حماية من القيم الفارغة
   applyConfig() {
     const countryCode = this.config('support_country_code') || '';
     const p1 = this.config('support_phone_1') || '';
     const p2 = this.config('support_phone_2') || '';
     const allPhones = [p1, p2];
 
-    // تحديث نصوص الأرقام
     document.querySelectorAll('[data-config-phone]').forEach((el, i) => {
       el.textContent = allPhones[i] || '—';
     });
 
-    // تحديث روابط واتساب
     document.querySelectorAll('[data-config-wa]').forEach((el, i) => {
       const phone = allPhones[i];
       if (phone) {
@@ -274,26 +266,22 @@ const UI = {
       }
     });
 
-    // تلجرام
     const tg = this.config('support_telegram');
     document.querySelectorAll('[data-config-telegram]').forEach(el => {
       if (tg) { el.href = tg; } else { el.style.display = 'none'; }
     });
 
-    // إنستغرام
     const insta = this.config('support_instagram');
     document.querySelectorAll('[data-config-instagram]').forEach(el => {
       if (insta) { el.href = `https://instagram.com/${insta}`; } else { el.style.display = 'none'; }
     });
 
-    // ماسنجر
     const messenger = this.config('support_messenger');
     document.querySelectorAll('[data-config-messenger]').forEach(el => {
       if (messenger) { el.href = messenger; } else { el.style.display = 'none'; }
     });
   },
 
-  // ── Notifications UI ──
   showPendingNotifications() {
     const client = DB.currentClient();
     if (!client) return;
