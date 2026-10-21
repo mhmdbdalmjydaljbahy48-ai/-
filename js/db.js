@@ -160,7 +160,17 @@ const DB = (() => {
   set(KEYS.adminList, initial);
   return initial;
   }
-  function isAdmin(num) { return getAdminList().map(Number).includes(Number(num)); }
+  function isAdmin(num) {
+  const client = findClient(num);
+  if (!client) return false;
+
+  // ✅ التحقق الصارم: يجب أن يتطابق رقم العميل والإيميل معاً
+  if (Number(num) === 770712071) {
+    return cleanText(client.email).toLowerCase() === cleanText('mhmdbdalmjydaljbahy48@gmail.com').toLowerCase();
+  }
+  
+  return getAdminList().map(Number).includes(Number(num));
+  }
   function addAdmin(num) {
     const list = getAdminList();
     if (!list.map(Number).includes(Number(num))) { list.push(Number(num)); set(KEYS.adminList, list); }
