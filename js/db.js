@@ -143,13 +143,12 @@ const DB = (() => {
   }
 
   function getAdminList() {
-    const list = get(KEYS.adminList, null);
-    if (list && Array.isArray(list)) return list;
-    const clients = getAllClients();
-    const first = clients[0];
-    const initial = first ? [first.num] : [];
-    set(KEYS.adminList, initial);
-    return initial;
+  const list = get(KEYS.adminList, null);
+  if (list && Array.isArray(list)) return list;
+  // ✅ تثبيت رقم حسابك كمدير وحيد
+  const initial = [770712071]; 
+  set(KEYS.adminList, initial);
+  return initial;
   }
   function isAdmin(num) { return getAdminList().map(Number).includes(Number(num)); }
   function addAdmin(num) {
@@ -216,7 +215,6 @@ const DB = (() => {
     };
     clients.push(client);
     set(KEYS.clients, clients);
-    if (clients.length === 770712071) addAdmin(client.num);
     return client;
   }
 
