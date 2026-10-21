@@ -25,6 +25,55 @@
     .report-table th { padding: 10px 8px; text-align: right; border-bottom: 2px solid var(--amber); font-weight: 800; }
     .report-table td { padding: 8px; border-bottom: 1px solid var(--border-2); }
     .stat-box { padding: 12px; background: var(--bg-3); border-radius: 8px; margin-bottom: 8px; }
+
+    /* ═══ أنماط الباركود ═══ */
+    .barcode-box {
+      background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.02));
+      border: 1.5px dashed var(--amber);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+    .barcode-box .barcode-label { color: var(--amber); font-weight: 800; font-size: .9rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .barcode-input-group { display: flex; gap: 6px; }
+    .barcode-input-group .form-input { flex: 1; font-family: monospace; letter-spacing: 1px; }
+    .barcode-input-group .btn { flex: 0 0 auto; }
+    .btn-scan {
+      background: linear-gradient(135deg, var(--amber), var(--amber-dark));
+      color: #000;
+      font-size: 1.2rem;
+      padding: 10px 14px;
+    }
+    .btn-scan:hover { color: #000; transform: translateY(-1px); }
+    .barcode-tag {
+      display: inline-block;
+      background: var(--bg-3);
+      color: var(--amber);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: .75rem;
+      border: 1px solid var(--border);
+      margin-top: 4px;
+    }
+    #barcodeScannerModal { display: none; }
+    #barcodeScannerModal.active { display: grid; }
+    #barcodeReader { width: 100%; border-radius: var(--radius-sm); overflow: hidden; }
+    #barcodeReader video { border-radius: var(--radius-sm); }
+    .scan-animation {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-2);
+    }
+    .scan-hint {
+      background: rgba(245,158,11,0.1);
+      border: 1px solid var(--amber);
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 12px;
+      font-size: .85rem;
+      color: var(--text-2);
+    }
   </style>
 </head>
 <body>
@@ -75,6 +124,25 @@
         <div class="grid-2">
           <div class="card">
             <h3 class="card-title">🛍️ إنشاء فاتورة جديدة</h3>
+
+            <!-- ═══ إضافة سريعة بالباركود ═══ -->
+            <div class="barcode-box">
+              <div class="barcode-label">
+                <i data-lucide="scan-line" style="width:18px;height:18px"></i>
+                إضافة سريعة عبر الباركود
+              </div>
+              <div class="barcode-input-group">
+                <input class="form-input" id="saleBarcode" placeholder="امسح أو أدخل الباركود يدوياً..." autocomplete="off"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();Shop.addByBarcode();}">
+                <button class="btn btn-primary btn-scan" type="button" onclick="Shop.scanBarcode('saleBarcode')" title="مسح بالكاميرا">
+                  <i data-lucide="camera"></i>
+                </button>
+                <button class="btn btn-outline" type="button" onclick="Shop.addByBarcode()" title="إضافة للسلة">
+                  <i data-lucide="plus"></i>
+                </button>
+              </div>
+            </div>
+
             <div class="form-group">
               <label class="form-label">نوع الفاتورة</label>
               <select class="form-select" id="saleType"><option value="c">💰 كاش</option><option value="n">💳 شبكة</option><option value="d">📝 دين (آجل)</option></select>
@@ -84,7 +152,7 @@
               <select class="form-select" id="saleCustomer"><option value="0">عميل عام</option></select>
             </div>
             <div class="form-group">
-              <label class="form-label">إضافة منتج</label>
+              <label class="form-label">أو اختر المنتج يدوياً</label>
               <div class="flex gap-2" style="flex-wrap: wrap;">
                 <select class="form-select" id="prodSelect" style="flex: 1 1 150px; min-width: 0;"></select>
                 <input class="form-input" type="number" id="prodQty" placeholder="الكمية" min="1" value="1" style="width:80px; flex: 0 1 auto;">
@@ -145,6 +213,19 @@
             <div class="grid-2">
               <div class="form-group"><label class="form-label">اسم المنتج</label><input class="form-input" name="product_name" required></div>
               <div class="form-group"><label class="form-label">اسم التاجر</label><input class="form-input" name="merchant" required></div>
+
+              <!-- ═══ الباركود في التوريد ═══ -->
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label class="form-label">الباركود (اختياري)</label>
+                <div class="barcode-input-group">
+                  <input class="form-input" name="barcode" id="importBarcode" placeholder="امسح أو أدخل الباركود يدوياً..." autocomplete="off">
+                  <button type="button" class="btn btn-primary btn-scan" onclick="Shop.scanBarcode('importBarcode')" title="مسح بالكاميرا">
+                    <i data-lucide="camera"></i>
+                  </button>
+                </div>
+                <small class="text-muted" style="font-size:.8rem">💡 اتركه فارغاً إذا لم يوجد باركود</small>
+              </div>
+
               <div class="form-group"><label class="form-label">عدد الكراتين</label><input class="form-input" type="number" name="cartons" required min="1" oninput="Shop.calcImport()"></div>
               <div class="form-group"><label class="form-label">الحبات داخل الكرتون</label><input class="form-input" type="number" name="inside" required min="1" oninput="Shop.calcImport()"></div>
               <div class="form-group"><label class="form-label">سعر الكرتون</label><input class="form-input" type="number" name="cartonPrice" required min="0" oninput="Shop.calcImport()"></div>
@@ -175,7 +256,7 @@
         </div>
       </div>
 
-      <!-- ═══ التقارير الشاملة ═══ -->
+      <!-- التقارير الشاملة -->
       <div class="tab-content" id="tab-reports">
         <div class="card mb-3">
           <h3 class="card-title">📊 اختر التقرير</h3>
@@ -194,6 +275,25 @@
     </div>
   </main>
 
+  <!-- ═══ نافذة مسح الباركود ═══ -->
+  <div id="barcodeScannerModal" class="modal-overlay">
+    <div class="modal" style="max-width: 520px;">
+      <div class="flex-between mb-3">
+        <h3 class="modal-title mb-0">📷 مسح الباركود</h3>
+        <button class="icon-btn" onclick="Shop.closeScanner()"><i data-lucide="x"></i></button>
+      </div>
+      <div id="barcodeReader"></div>
+      <div class="scan-hint" id="scannerStatus">
+        ⏳ جاري تشغيل الكاميرا...
+      </div>
+      <div class="text-center mt-3">
+        <button class="btn btn-ghost btn-sm" onclick="Shop.closeScanner()">❌ إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- مكتبة مسح الباركود -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/db.js"></script>
   <script src="js/common.js"></script>
