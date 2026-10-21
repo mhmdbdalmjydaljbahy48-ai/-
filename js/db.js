@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v7)
-   (تحقق مرن من الإيميل + دعم كامل للباركود والتقارير)
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v9)
+   (تحقق صارم من .com + تنظيف الرموز الخفية + الباركود + التقارير)
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
@@ -21,7 +21,7 @@ const DB = (() => {
     adminList: 'admin_list',
   };
 
-  // دالة مساعدة لتنظيف النصوص من المسافات والرموز الخفية
+  // دالة تنظيف قوية جداً تمسح المسافات والرموز الخفية (RTL/LTR/Zero-width)
   function cleanText(str) {
     if (!str) return '';
     return String(str).replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069\u00A0]/g, '');
@@ -103,7 +103,7 @@ const DB = (() => {
   const DEFAULT_SETTINGS = {
     month_price: 0, trial_months: 1,
     registration_mode: 'first_only',
-    email_suffix: '', // تم إزالة الشرط الصارم للسماح بأي إيميل صحيح
+    email_suffix: '.com', // تم إعادة الشرط
     support_phone_1: '738439579', support_phone_2: '785068462',
     support_country_code: '967',
     support_telegram: 'https://t.me/+967734427533',
@@ -167,16 +167,21 @@ const DB = (() => {
     return getAllClients().find(c => cleanText(c.email).toLowerCase() === clean);
   }
 
-  // ✅ دالة التحقق الجديدة: مرنة جداً وتقبل أي إيميل صالح
+  // ✅ التحقق الصارم بعد التنظيف
   function validateEmail(email, suffix) {
-    let e = cleanText(email);
+    let e = cleanText(email); // تنظيف الإيميل من الرموز الخفية
     if (!e || e.length > 150) return false;
     
     // التحقق من الصيغة الأساسية (شيء@شيء.شيء)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(e)) return false;
     
-    // تجاهلنا شرط الـ suffix الصارم لأنه كان يسبب مشاكل في المتصفحات
+    // التحقق من اللاحقة (suffix) بعد تنظيفها
+    if (suffix) {
+      const s = cleanText(suffix);
+      if (s && !e.toLowerCase().endsWith(s.toLowerCase())) return false;
+    }
+    
     return true;
   }
 
