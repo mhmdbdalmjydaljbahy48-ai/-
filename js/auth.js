@@ -1,6 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — المصادقة — النسخة المطوّرة
-   (تنظيف قوي للمدخلات + حماية brute-force + mode)
+   ✨️ FT — المصادقة — النسخة المطوّرة (v4)
    ═══════════════════════════════════════════════════════════ */
 
 const Auth = {
@@ -14,10 +13,7 @@ const Auth = {
   async register(data) {
     let { name, num, email, password } = data;
     
-    // تنظيف الاسم
     name = (name || '').trim();
-    
-    // تنظيف الإيميل باستخدام الدالة القوية
     email = DB.cleanText(email);
     
     if (!name || name.length < 2) throw new Error('الاسم قصير جداً');
@@ -25,9 +21,10 @@ const Auth = {
     const n = DB.parseNum(num, 1);
     if (n === null) throw new Error('رقم العميل يجب أن يكون أرقاماً فقط');
     
-    // التحقق من الإيميل
-    if (!DB.validateEmail(email)) {
-      throw new Error(`إيميل غير صحيح، يرجى التأكد من كتابته بشكل سليم (مثال: name@example.com)`);
+    // التحقق من الإيميل (دالة DB الآن تمسح الرموز الخفية قبل الفحص)
+    const suffix = DB.getSettings().email_suffix || '.com';
+    if (!DB.validateEmail(email, suffix)) {
+      throw new Error(`إيميل غير صحيح (يجب أن ينتهي بـ ${suffix})`);
     }
     
     if (!password || password.length < 8) throw new Error('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
@@ -48,7 +45,7 @@ const Auth = {
     const data = {
       name: form.name.value.trim(),
       num: form.num.value.trim(),
-      email: DB.cleanText(form.email.value), // تنظيف الإيميل
+      email: DB.cleanText(form.email.value),
       password: form.password.value,
     };
     try {
