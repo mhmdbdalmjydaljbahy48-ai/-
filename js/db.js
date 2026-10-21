@@ -1,6 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v10)
-   (تحقق مرن من .com + تنظيف شامل للرموز + الباركود + التقارير)
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v11)
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
@@ -21,7 +20,6 @@ const DB = (() => {
     adminList: 'admin_list',
   };
 
-  // دالة تنظيف قوية جداً تمسح المسافات والرموز الخفية (بما فيها المسافة العربية والتطويل)
   function cleanText(str) {
     if (!str) return '';
     return String(str).replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069\u00A0\u3000\u0640]/g, '');
@@ -169,7 +167,6 @@ const DB = (() => {
     return getAllClients().find(c => cleanText(c.email).toLowerCase() === clean);
   }
 
-  // ✅ التحقق النهائي: نستخدم includes بدلاً من endsWith لتجاهل أي رموز خفية قد تفلت من التنظيف
   function validateEmail(email, suffix) {
     let e = cleanText(email);
     if (!e || e.length > 150) return false;
@@ -186,12 +183,10 @@ const DB = (() => {
   }
 
   function getRegistrationMode() { return getSettings().registration_mode || 'first_only'; }
+  
+  // ✅ التعديل 1: السماح بالتسجيل للجميع (ومنع التكرار موجود في createClient)
   function canRegister() {
-    const mode = getRegistrationMode();
-    if (mode === 'closed') return { ok: false, why: 'التسجيل مغلق. تواصل مع الإدارة.' };
-    if (mode === 'open') return { ok: true, why: '' };
-    if (getAllClients().length === 0) return { ok: true, why: '' };
-    return { ok: false, why: 'التسجيل الذاتي مغلق. تواصل مع الإدارة.' };
+    return { ok: true, why: '' }; 
   }
 
   async function createClient({ num, name, email, password, months, shop_name, activity_type, location, shop_location, currency, account_type }) {
