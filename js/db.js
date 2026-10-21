@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v5)
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v6)
    تشمل: PBKDF2، brute-force، دمج الديون، الأرشفة،
    الإشعارات، التذكيرات، ترحيل تلقائي، إدارة متعددة،
-   التقارير الشاملة، + دعم الباركود
+   التقارير الشاملة، دعم الباركود، + تنظيف الإيميلات
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
@@ -117,7 +117,12 @@ const DB = (() => {
       stored = raw ? JSON.parse(raw) : null;
     } catch { stored = null; }
     const base = (stored && typeof stored === 'object' && !Array.isArray(stored)) ? stored : {};
-    return Object.assign({}, DEFAULT_SETTINGS, base);
+    const merged = Object.assign({}, DEFAULT_SETTINGS, base);
+    // ✅ تنظيف الـ suffix من أي مسافات أو رموز خفية
+    if (merged.email_suffix) {
+      merged.email_suffix = String(merged.email_suffix).replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '');
+    }
+    return merged;
   }
   function setSettings(s) {
     const safe = (s && typeof s === 'object' && !Array.isArray(s)) ? s : {};
@@ -125,6 +130,7 @@ const DB = (() => {
   }
   function updateSettings(patch) {
     const s = Object.assign(getSettings(), patch || {});
+    if (s.email_suffix) s.email_suffix = String(s.email_suffix).replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '');
     setSettings(s); return s;
   }
 
@@ -159,16 +165,28 @@ const DB = (() => {
   function getAllClients() { const a = get(KEYS.clients, []); return Array.isArray(a) ? a : []; }
   function findClient(num) { return getAllClients().find(c => Number(c.num) === Number(num)); }
   function findClientByEmail(email) {
-    return getAllClients().find(c => (c.email || '').toLowerCase() === (email || '').toLowerCase());
+    const clean = String(email || '').replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '').toLowerCase();
+    return getAllClients().find(c => (c.email || '').replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '').toLowerCase() === clean);
   }
 
+  // ✅ دالة التحقق المعدلة (تنظف الإيميل قبل الفحص)
   function validateEmail(email, suffix) {
-    const e = (email || '').trim();
-    if (!e || e.includes(' ') || !e.includes('@') || e.length > 150) return false;
-    if (suffix && !e.toLowerCase().endsWith(suffix.toLowerCase())) return false;
-    const [local, , domain] = e.split('@');
+    const cleanStr = (str) => String(str || '').replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '');
+    
+    let e = cleanStr(email);
+    if (!e || !e.includes('@') || e.length > 150) return false;
+    
+    if (suffix) {
+      const cleanSuffix = cleanStr(suffix);
+      if (cleanSuffix && !e.toLowerCase().endsWith(cleanSuffix.toLowerCase())) return false;
+    }
+    
+    const parts = e.split('@');
+    if (parts.length !== 2) return false;
+    const [local, domain] = parts;
     return !!(local && domain && domain.includes('.'));
   }
+
   function getRegistrationMode() { return getSettings().registration_mode || 'first_only'; }
   function canRegister() {
     const mode = getRegistrationMode();
@@ -181,12 +199,16 @@ const DB = (() => {
   async function createClient({ num, name, email, password, months, shop_name, activity_type, location, shop_location, currency, account_type }) {
     const clients = getAllClients();
     if (clients.find(c => Number(c.num) === Number(num))) throw new Error('رقم العميل مستخدم من قبل');
-    if (clients.find(c => (c.email||'').toLowerCase() === (email||'').toLowerCase())) throw new Error('الإيميل مستخدم من قبل');
+    // تنظيف الإيميل قبل الحفظ
+    const cleanEmail = String(email || '').replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '');
+    if (clients.find(c => (c.email||'').replace(/[\s\u200e\u200f\u202a-\u202e\u200b\u200c\u200d\u2066-\u2069]/g, '').toLowerCase() === cleanEmail.toLowerCase())) {
+      throw new Error('الإيميل مستخدم من قبل');
+    }
     const trial = months !== undefined ? months : getSettings().trial_months || 1;
     const start = now();
     const expiry = addMonths(start, trial);
     const client = {
-      num: Number(num), name, email,
+      num: Number(num), name, email: cleanEmail,
       password_hash: await hashPassword(password),
       subscription_months: trial,
       subscription_duration: durationLabel(trial),
@@ -407,14 +429,11 @@ const DB = (() => {
   function deleteInquiry(id) { set(KEYS.inquiries, getInquiries().filter(i => i.id !== Number(id))); }
   function clearInquiries() { set(KEYS.inquiries, []); }
 
-  // ── Products ──
   function getProducts() { const a = get(KEYS.products, []); return Array.isArray(a) ? a : []; }
   function findProduct(id) { return getProducts().find(p => p.product_id === Number(id)); }
   function findProductByName(name) {
     return getProducts().find(p => (p.product_name||'').toLowerCase() === (name||'').toLowerCase());
   }
-
-  // ✅ جديد: البحث عن منتج بالباركود
   function findProductByBarcode(barcode) {
     if (!barcode) return null;
     const b = String(barcode).trim();
@@ -425,7 +444,6 @@ const DB = (() => {
   function createProduct({ product_name, price=0, selling_price=0, purchase_price=0, quantity=0, units_per_carton=1, barcode=null }) {
     const products = getProducts();
     if (findProductByName(product_name)) throw new Error('المنتج موجود بنفس الاسم');
-    // منع تكرار الباركود
     if (barcode) {
       const existing = findProductByBarcode(barcode);
       if (existing) throw new Error(`الباركود [${barcode}] مستخدم للمنتج: ${existing.product_name}`);
@@ -438,7 +456,6 @@ const DB = (() => {
     const products = getProducts();
     const idx = products.findIndex(p => p.product_id === Number(id));
     if (idx < 0) return null;
-    // منع تكرار الباركود عند التحديث
     if (patch.barcode) {
       const existing = findProductByBarcode(patch.barcode);
       if (existing && existing.product_id !== Number(id)) {
@@ -555,7 +572,6 @@ const DB = (() => {
     return get(KEYS.debtArchive, []).filter(d => Number(d.client_num) === Number(clientNum));
   }
 
-  // ── Imports ──
   function getImports(clientNum) { return get(KEYS.imports, []).filter(i => Number(i.client_num) === Number(clientNum)); }
   function createImport(row) {
     const arr = get(KEYS.imports, []);
@@ -731,7 +747,6 @@ const DB = (() => {
   }
   function getAuditLog(limit = 100) { return get(KEYS.auditLog, []).slice(0, limit); }
 
-  // ── دوال التقارير ──
   function getTotalCartonsImported(clientNum) {
     return getImports(clientNum).reduce((s, i) => s + Number(i.number_of_cartons || 0), 0);
   }
