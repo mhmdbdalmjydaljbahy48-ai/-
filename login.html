@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تسجيل الدخول — ✨️ FT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    body { display:grid; place-items:center; min-height:100vh; padding:24px; }
+    .auth-card { width:100%; max-width:440px; background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:40px; box-shadow:var(--shadow-2); position:relative; z-index:2; }
+    .auth-brand { text-align:center; margin-bottom:32px; }
+    .auth-brand h1 { font-size:1.8rem; font-weight:900; background:linear-gradient(135deg,var(--amber),var(--amber-light)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .auth-brand p { color:var(--text-2); font-size:.9rem; margin-top:4px; }
+  </style>
+</head>
+<body>
+  <canvas id="golden-particles"></canvas>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--amber),var(--amber-dark));display:grid;place-items:center;margin:0 auto 16px;font-size:1.8rem;font-weight:900;color:#000;box-shadow:var(--shadow-gold)">✨</div>
+      <h1>تسجيل الدخول</h1>
+      <p>مرحباً بعودتك إلى نظام FT</p>
+    </div>
+    <form id="loginForm">
+      <div class="form-group"><label class="form-label">رقم العميل</label><input class="form-input" name="num" required placeholder="أدخل رقمك" autocomplete="username"></div>
+      <div class="form-group"><label class="form-label">كلمة المرور</label><input class="form-input" type="password" name="password" required placeholder="••••••••" autocomplete="current-password"></div>
+      <button type="submit" class="btn btn-primary btn-block mb-3"><i data-lucide="log-in"></i> دخول</button>
+      <div class="text-center"><a href="register.html">ليس لديك حساب؟ سجّل الآن</a></div>
+      <div class="text-center mt-2"><a href="index.html" style="color:var(--text-2)">← العودة للرئيسية</a></div>
+    </form>
+  </div>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/db.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    document.getElementById('loginForm').onsubmit = (e) => { e.preventDefault(); Auth.onLoginSubmit(e.target); };
+  </script>
+</body>
+</html>

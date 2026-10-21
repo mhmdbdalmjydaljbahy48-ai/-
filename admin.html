@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة الإدارة — ✨️ FT</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 24px; padding-bottom: 8px; }
+    .tab { padding: 10px 20px; border-radius: var(--radius-sm); background: var(--bg-2); border: 1px solid var(--border-2); font-weight: 700; white-space: nowrap; }
+    .tab.active { background: var(--amber); color: #000; border-color: var(--amber); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn .3s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <canvas id="golden-particles"></canvas>
+  <aside class="sidebar">
+    <div class="sidebar-brand"><div class="sidebar-logo">🛡</div><div><div class="sidebar-title">الإدارة</div><div class="sidebar-sub">لوحة التحكم</div></div></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-link"><i data-lucide="home"></i> الرئيسية</a>
+      <a href="shop.html" class="nav-link"><i data-lucide="shopping-cart"></i> المتجر</a>
+      <a href="personal.html" class="nav-link"><i data-lucide="user"></i> القسم الفردي</a>
+      <a href="subscription.html" class="nav-link"><i data-lucide="star"></i> اشتراكي</a>
+      <a href="support.html" class="nav-link"><i data-lucide="headphones"></i> الدعم</a>
+      <a href="admin.html" class="nav-link active"><i data-lucide="shield"></i> لوحة الإدارة</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card"><div class="user-avatar" id="userAvatar">?</div><div style="min-width:0;flex:1"><div class="user-name" id="userName">—</div></div></div>
+      <button class="btn btn-ghost btn-block btn-sm" data-logout><i data-lucide="log-out"></i> خروج</button>
+    </div>
+  </aside>
+  <div class="sidebar-backdrop"></div>
+  <header class="topbar">
+    <div class="flex" style="align-items:center;gap:12px"><button class="hamburger"><i data-lucide="menu"></i></button><div class="topbar-title">🛡️ لوحة الإدارة</div></div>
+    <div class="topbar-actions"><button class="icon-btn" data-theme-toggle><i data-lucide="sun-moon"></i></button></div>
+  </header>
+  <main class="main-content">
+    <div class="container">
+      <div class="tabs">
+        <button class="tab active" data-tab="home">📊 نظرة عامة</button>
+        <button class="tab" data-tab="pending">📥 الطلبات المعلقة</button>
+        <button class="tab" data-tab="inquiries">✉️ الاستفسارات</button>
+        <button class="tab" data-tab="users">👥 المشتركون</button>
+        <button class="tab" data-tab="broadcast">📢 الرسائل</button>
+        <button class="tab" data-tab="settings">⚙️ الإعدادات</button>
+      </div>
+
+      <div class="tab-content active" id="tab-home">
+        <div class="grid-3" id="statsGrid"></div>
+      </div>
+
+      <div class="tab-content" id="tab-pending">
+        <div class="card"><div id="pendingList"></div></div>
+      </div>
+
+      <div class="tab-content" id="tab-inquiries">
+        <div class="card">
+          <div class="flex-between mb-3">
+            <h3 class="card-title mb-0">✉️ استفسارات الزوار</h3>
+            <button class="btn btn-danger btn-sm" onclick="Admin.clearInquiries()">🗑 مسح الكل</button>
+          </div>
+          <div id="inquiriesList"></div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-users">
+        <div class="flex-between mb-3">
+          <h3 class="card-title mb-0">👥 قائمة المشتركين</h3>
+          <button class="btn btn-primary btn-sm" onclick="Admin.addUser()">➕ إنشاء حساب</button>
+        </div>
+        <div class="card" style="overflow-x:auto"><table style="width:100%;text-align:right;border-collapse:collapse" id="usersTable"></table></div>
+      </div>
+
+      <div class="tab-content" id="tab-broadcast">
+        <div class="card">
+          <h3 class="card-title">📢 رسالة جماعية (داخل التطبيق)</h3>
+          <p class="text-muted mb-3">ملاحظة: الإشعارات تظهر للمستخدمين على نفس الجهاز/المتصفح فقط في نظام localStorage.</p>
+          <div class="form-group"><label class="form-label">العنوان</label><input class="form-input" id="broadcastTitle"></div>
+          <div class="form-group"><label class="form-label">النص</label><textarea class="form-textarea" id="broadcastBody" rows="4"></textarea></div>
+          <button class="btn btn-primary" onclick="Admin.sendBroadcast()">إرسال للكل</button>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-settings">
+        <div class="grid-2">
+          <div class="card">
+            <h3 class="card-title">💰 سعر الاشتراك</h3>
+            <div class="form-group"><label class="form-label">سعر الشهر الواحد</label><input class="form-input" type="number" id="setPrice"></div>
+            <button class="btn btn-primary" onclick="Admin.savePrice()">حفظ</button>
+          </div>
+          <div class="card">
+            <h3 class="card-title">💱 أسعار الصرف</h3>
+            <div class="form-group"><label class="form-label">سعر الدولار (YER)</label><input class="form-input" type="number" id="setUsd"></div>
+            <div class="form-group"><label class="form-label">سعر السعودي (YER)</label><input class="form-input" type="number" id="setSar"></div>
+            <button class="btn btn-primary" onclick="Admin.saveRates()">حفظ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/db.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

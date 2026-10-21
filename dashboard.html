@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة التحكم — ✨️ FT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Reem+Kufi:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <canvas id="golden-particles"></canvas>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo">✨</div>
+      <div>
+        <div class="sidebar-title">FT</div>
+        <div class="sidebar-sub">إدارة الأسواق والديون</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-link active"><i data-lucide="home"></i> الرئيسية</a>
+      <a href="shop.html" class="nav-link"><i data-lucide="shopping-cart"></i> المتجر</a>
+      <a href="personal.html" class="nav-link"><i data-lucide="user"></i> القسم الفردي</a>
+      <a href="subscription.html" class="nav-link"><i data-lucide="star"></i> اشتراكي</a>
+      <a href="support.html" class="nav-link"><i data-lucide="headphones"></i> الدعم</a>
+      <a href="admin.html" class="nav-link" data-admin-only style="display:none"><i data-lucide="shield"></i> لوحة الإدارة</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <div style="min-width:0;flex:1">
+          <div class="user-name" id="userName">—</div>
+          <div class="user-role" id="userRole">—</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-block btn-sm" data-logout><i data-lucide="log-out"></i> تسجيل الخروج</button>
+    </div>
+  </aside>
+  <div class="sidebar-backdrop"></div>
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="flex" style="align-items:center;gap:12px">
+      <button class="hamburger" aria-label="القائمة"><i data-lucide="menu"></i></button>
+      <div class="topbar-title">لوحة التحكم</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn" data-theme-toggle aria-label="الوضع"><i data-lucide="sun-moon"></i></button>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container">
+      <div class="page-header">
+        <h1 class="page-title">مرحباً، <span id="welcomeName">—</span> 👋</h1>
+        <p class="page-subtitle" id="subStatus">—</p>
+      </div>
+
+      <div class="grid-3 mb-4">
+        <div class="card card-golden">
+          <div class="card-title"><i data-lucide="calendar"></i> حالة الاشتراك</div>
+          <div style="font-size:2rem;font-weight:900;color:var(--amber)" id="daysLeft">—</div>
+          <div class="text-muted" style="font-size:.85rem">يوم متبقي</div>
+          <div class="mt-3"><a href="subscription.html" class="btn btn-outline btn-sm btn-block">إدارة الاشتراك</a></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i data-lucide="shopping-bag"></i> مبيعات اليوم</div>
+          <div style="font-size:2rem;font-weight:900" id="todaySales">0</div>
+          <div class="text-muted" style="font-size:.85rem">عملية بيع</div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i data-lucide="alert-circle"></i> ديون معلقة</div>
+          <div style="font-size:2rem;font-weight:900;color:var(--danger)" id="totalDebts">0</div>
+          <div class="text-muted" style="font-size:.85rem">ريال</div>
+        </div>
+      </div>
+
+      <div class="grid-2 mb-4">
+        <a href="shop.html" class="card" style="text-decoration:none;color:var(--text)">
+          <div class="feature-icon"><i data-lucide="shopping-cart"></i></div>
+          <h3 class="card-title">🏪 إدارة المتجر</h3>
+          <p class="text-muted">مبيعات، منتجات، ديون، عملاء، توريد، حاسبة صرف</p>
+        </a>
+        <a href="personal.html" class="card" style="text-decoration:none;color:var(--text)">
+          <div class="feature-icon"><i data-lucide="user"></i></div>
+          <h3 class="card-title">👤 القسم الفردي</h3>
+          <p class="text-muted">مصاريف، دخل، ديون شخصية، مذكرات، أهداف، التزامات</p>
+        </a>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i data-lucide="activity"></i> آخر النشاطات</div>
+        <div id="recentActivity" class="text-muted">لا نشاطات بعد.</div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer" style="padding:32px 24px 16px">
+    <div class="footer-bottom">© <span id="year"></span> ✨️ FT إدارة الأسواق والديون</div>
+  </footer>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/db.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

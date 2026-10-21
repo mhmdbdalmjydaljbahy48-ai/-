@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الدعم والتواصل — ✨️ FT</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <canvas id="golden-particles"></canvas>
+  <aside class="sidebar">
+    <div class="sidebar-brand"><div class="sidebar-logo">✨</div><div><div class="sidebar-title">FT</div><div class="sidebar-sub">الدعم</div></div></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-link"><i data-lucide="home"></i> الرئيسية</a>
+      <a href="shop.html" class="nav-link"><i data-lucide="shopping-cart"></i> المتجر</a>
+      <a href="personal.html" class="nav-link"><i data-lucide="user"></i> القسم الفردي</a>
+      <a href="subscription.html" class="nav-link"><i data-lucide="star"></i> اشتراكي</a>
+      <a href="support.html" class="nav-link active"><i data-lucide="headphones"></i> الدعم</a>
+      <a href="admin.html" class="nav-link" data-admin-only style="display:none"><i data-lucide="shield"></i> لوحة الإدارة</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card"><div class="user-avatar" id="userAvatar">?</div><div style="min-width:0;flex:1"><div class="user-name" id="userName">—</div></div></div>
+      <button class="btn btn-ghost btn-block btn-sm" data-logout><i data-lucide="log-out"></i> خروج</button>
+    </div>
+  </aside>
+  <div class="sidebar-backdrop"></div>
+  <header class="topbar">
+    <div class="flex" style="align-items:center;gap:12px"><button class="hamburger"><i data-lucide="menu"></i></button><div class="topbar-title">📞 الدعم والتواصل</div></div>
+    <div class="topbar-actions"><button class="icon-btn" data-theme-toggle><i data-lucide="sun-moon"></i></button></div>
+  </header>
+  <main class="main-content">
+    <div class="container">
+      <div class="card card-golden mb-4">
+        <h3 class="card-title"><i data-lucide="headphones"></i> نحن هنا لمساعدتك</h3>
+        <p class="text-muted">تواصل معنا عبر أي من القنوات التالية في أي وقت.</p>
+      </div>
+      <div class="grid-2 mb-4">
+        <div class="card">
+          <h4 class="text-amber mb-3">📱 أرقام الهواتف</h4>
+          <p>📞 <span data-config-phone></span></p>
+          <p>📞 <span data-config-phone></span></p>
+          <p class="text-muted mt-2" style="font-size:.85rem">رمز الدولة: +967</p>
+        </div>
+        <div class="card">
+          <h4 class="text-amber mb-3">💬 قنوات التواصل</h4>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <a href="#" data-config-wa target="_blank" class="btn btn-outline" style="justify-content:flex-start"><i data-lucide="phone"></i> واتساب 1</a>
+            <a href="#" data-config-wa target="_blank" class="btn btn-outline" style="justify-content:flex-start"><i data-lucide="phone"></i> واتساب 2</a>
+            <a href="#" data-config-telegram target="_blank" class="btn btn-outline" style="justify-content:flex-start"><i data-lucide="send"></i> تلجرام</a>
+            <a href="#" data-config-instagram target="_blank" class="btn btn-outline" style="justify-content:flex-start"><i data-lucide="instagram"></i> إنستغرام</a>
+            <a href="#" data-config-messenger target="_blank" class="btn btn-outline" style="justify-content:flex-start"><i data-lucide="message-circle"></i> ماسنجر</a>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 class="card-title">✉️ نموذج تواصل سريع</h3>
+        <form id="supportForm">
+          <div class="form-group"><label class="form-label">الاسم</label><input class="form-input" name="name" required></div>
+          <div class="form-group"><label class="form-label">الرسالة</label><textarea class="form-textarea" name="message" rows="4" required></textarea></div>
+          <button type="submit" class="btn btn-primary">إرسال</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/db.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const c = UI.requireLogin();
+      if (c) {
+        document.getElementById('userAvatar').textContent = c.name.charAt(0);
+        document.getElementById('userName').textContent = c.name;
+        if (DB.isAdmin(c.num) || c.is_admin) document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'flex');
+      }
+      const form = document.getElementById('supportForm');
+      if (form) {
+        form.onsubmit = (e) => {
+          e.preventDefault();
+          const formData = new FormData(form);
+          const name = formData.get('name').trim();
+          const message = formData.get('message').trim();
+          if (!name || !message) return UI.toast('يرجى تعبئة جميع الحقول', 'error');
+          const client = DB.currentClient();
+          const senderType = client ? " (حساب مسجل)" : " (مستفسر خارجي)";
+          const finalName = name + senderType;
+          DB.addInquiry({ name: finalName, email: client ? client.email : 'غير محدد', subject: 'استفسار من صفحة الدعم', message: message });
+          UI.toast('✅ تم إرسال رسالتك، ستظهر في لوحة الإدارة', 'success');
+          form.reset();
+        };
+      }
+    });
+  </script>
+</body>
+</html>

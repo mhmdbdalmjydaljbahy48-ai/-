@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>القسم الفردي — ✨️ FT</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 24px; padding-bottom: 8px; }
+    .tab { padding: 10px 20px; border-radius: var(--radius-sm); background: var(--bg-2); border: 1px solid var(--border-2); font-weight: 700; white-space: nowrap; }
+    .tab.active { background: var(--amber); color: #000; border-color: var(--amber); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn .3s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <canvas id="golden-particles"></canvas>
+  <aside class="sidebar">
+    <div class="sidebar-brand"><div class="sidebar-logo">✨</div><div><div class="sidebar-title">FT</div><div class="sidebar-sub">القسم الفردي</div></div></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-link"><i data-lucide="home"></i> الرئيسية</a>
+      <a href="shop.html" class="nav-link"><i data-lucide="shopping-cart"></i> المتجر</a>
+      <a href="personal.html" class="nav-link active"><i data-lucide="user"></i> القسم الفردي</a>
+      <a href="subscription.html" class="nav-link"><i data-lucide="star"></i> اشتراكي</a>
+      <a href="support.html" class="nav-link"><i data-lucide="headphones"></i> الدعم</a>
+      <a href="admin.html" class="nav-link" data-admin-only style="display:none"><i data-lucide="shield"></i> لوحة الإدارة</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card"><div class="user-avatar" id="userAvatar">?</div><div style="min-width:0;flex:1"><div class="user-name" id="userName">—</div><div class="user-role" id="userRole">—</div></div></div>
+      <button class="btn btn-ghost btn-block btn-sm" data-logout><i data-lucide="log-out"></i> خروج</button>
+    </div>
+  </aside>
+  <div class="sidebar-backdrop"></div>
+  <header class="topbar">
+    <div class="flex" style="align-items:center;gap:12px"><button class="hamburger"><i data-lucide="menu"></i></button><div class="topbar-title">👤 القسم الفردي</div></div>
+    <div class="topbar-actions"><button class="icon-btn" data-theme-toggle><i data-lucide="sun-moon"></i></button></div>
+  </header>
+  <main class="main-content">
+    <div class="container">
+      <div class="tabs">
+        <button class="tab active" data-tab="exp">💸 المصاريف</button>
+        <button class="tab" data-tab="inc">💰 الدخل</button>
+        <button class="tab" data-tab="wallet">💼 المحفظة</button>
+        <button class="tab" data-tab="debts">🤝 ديون شخصية</button>
+        <button class="tab" data-tab="notes">📝 مذكرات</button>
+        <button class="tab" data-tab="goals">🎯 أهداف ادخار</button>
+        <button class="tab" data-tab="obl">🔔 التزامات</button>
+        <button class="tab" data-tab="report">📊 تقرير شامل</button>
+      </div>
+
+      <!-- المصاريف -->
+      <div class="tab-content active" id="tab-exp">
+        <div class="grid-2">
+          <div class="card">
+            <div class="flex-between mb-3"><h3 class="card-title mb-0">💸 إضافة مصروف</h3></div>
+            <div class="form-group"><label class="form-label">التصنيف</label><select class="form-select" id="expCat">
+              <option value="food">🍔 أكل ومطاعم</option><option value="transport">🚕 مواصلات</option>
+              <option value="grocery">🛒 مقاضي البيت</option><option value="bills">💡 فواتير</option>
+              <option value="health">💊 صحة</option><option value="fun">☕ ترفيه</option>
+              <option value="other">📌 أخرى</option></select></div>
+            <div class="form-group"><label class="form-label">المبلغ</label><input class="form-input" type="number" id="expAmt" min="0"></div>
+            <div class="form-group"><label class="form-label">تفاصيل (اختياري)</label><input class="form-input" id="expDetails"></div>
+            <button class="btn btn-primary btn-block" onclick="Personal.addExpense()">حفظ المصروف</button>
+          </div>
+          <div class="card"><h3 class="card-title">📊 إحصائيات</h3><div id="expStats" class="text-muted">—</div><div id="expList" class="mt-3"></div></div>
+        </div>
+      </div>
+
+      <!-- الدخل -->
+      <div class="tab-content" id="tab-inc">
+        <div class="grid-2">
+          <div class="card">
+            <div class="flex-between mb-3"><h3 class="card-title mb-0">💰 إضافة دخل</h3></div>
+            <div class="form-group"><label class="form-label">المصدر</label><input class="form-input" id="incSrc" placeholder="مثال: راتب"></div>
+            <div class="form-group"><label class="form-label">المبلغ</label><input class="form-input" type="number" id="incAmt" min="0"></div>
+            <div class="form-group"><label class="form-label">النوع</label><select class="form-select" id="incPeriod"><option value="daily">يومي</option><option value="monthly">شهري</option></select></div>
+            <!-- ✅ إصلاح #28: حقل الملاحظات -->
+            <div class="form-group"><label class="form-label">ملاحظات (اختياري)</label><input class="form-input" id="incNotes" placeholder="أي تفاصيل إضافية"></div>
+            <button class="btn btn-primary btn-block" onclick="Personal.addIncome()">حفظ الدخل</button>
+          </div>
+          <div class="card"><h3 class="card-title">📊 إحصائيات</h3><div id="incStats" class="text-muted">—</div><div id="incList" class="mt-3"></div></div>
+        </div>
+      </div>
+
+      <!-- المحفظة -->
+      <div class="tab-content" id="tab-wallet"><div class="card"><h3 class="card-title">💼 محفظتي الصافية</h3><div id="walletSummary"></div></div></div>
+
+      <!-- الديون الشخصية -->
+      <div class="tab-content" id="tab-debts">
+        <div class="grid-2">
+          <div class="card">
+            <h3 class="card-title">🤝 ديون لي (عند الناس)</h3>
+            <button class="btn btn-primary btn-sm mb-2" onclick="Personal.addDebt('for_me')">➕ إضافة</button>
+            <div id="debtsForMe"></div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">🤝 ديون عليّ (للناس)</h3>
+            <button class="btn btn-primary btn-sm mb-2" onclick="Personal.addDebt('on_me')">➕ إضافة</button>
+            <div id="debtsOnMe"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- المذكرات -->
+      <div class="tab-content" id="tab-notes">
+        <div class="card">
+          <div class="flex-between mb-3"><h3 class="card-title mb-0">📝 مذكراتي</h3><button class="btn btn-primary btn-sm" onclick="Personal.addNote()">➕ إضافة مذكرة</button></div>
+          <div id="notesList"></div>
+        </div>
+      </div>
+
+      <!-- الأهداف -->
+      <div class="tab-content" id="tab-goals">
+        <div class="card">
+          <div class="flex-between mb-3"><h3 class="card-title mb-0">🎯 أهداف الادخار</h3><button class="btn btn-primary btn-sm" onclick="Personal.addGoal()">➕ إضافة هدف</button></div>
+          <div id="goalsList" class="grid-2"></div>
+        </div>
+      </div>
+
+      <!-- الالتزامات -->
+      <div class="tab-content" id="tab-obl">
+        <div class="card">
+          <div class="flex-between mb-3"><h3 class="card-title mb-0">🔔 الالتزامات الشهرية</h3><button class="btn btn-primary btn-sm" onclick="Personal.addObligation()">➕ إضافة التزام</button></div>
+          <div id="oblList"></div>
+        </div>
+      </div>
+
+      <!-- التقرير الشامل -->
+      <div class="tab-content" id="tab-report"><div class="card"><h3 class="card-title">📊 التقرير الشامل</h3><div id="reportBox"></div></div></div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/db.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/personal.js"></script>
+</body>
+</html>
