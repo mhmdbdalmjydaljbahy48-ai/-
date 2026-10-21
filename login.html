@@ -32,9 +32,10 @@
     </form>
   </div>
   <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="js/db.js"></script>
-  <script src="js/common.js"></script>
-  <script src="js/auth.js"></script>
+  <!-- ✅ التعديل 7: تحديث الكاش -->
+  <script src="js/db.js?v=11"></script>
+  <script src="js/common.js?v=11"></script>
+  <script src="js/auth.js?v=11"></script>
   <script>
     document.getElementById('loginForm').onsubmit = (e) => { e.preventDefault(); Auth.onLoginSubmit(e.target); };
   </script>
