@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v4)
-   تشمل: PBKDF2، حماية brute-force، دمج الديون، الأرشفة،
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v5)
+   تشمل: PBKDF2، brute-force، دمج الديون، الأرشفة،
    الإشعارات، التذكيرات، ترحيل تلقائي، إدارة متعددة،
-   + دوال التقارير الشاملة (Reports) الجديدة
+   التقارير الشاملة، + دعم الباركود
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
@@ -23,7 +23,6 @@ const DB = (() => {
     adminList: 'admin_list',
   };
 
-  // ── Storage helpers ──
   function get(key, fallback) {
     try {
       const raw = localStorage.getItem(PREFIX + key);
@@ -50,7 +49,6 @@ const DB = (() => {
     return d.toISOString();
   }
 
-  // ── تطبيع الأرقام العربية والفارسية ──
   const AR_DIGITS = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
                       '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9',
                       '٫':'.','٬':',','،':',' };
@@ -71,7 +69,6 @@ const DB = (() => {
     return v;
   }
 
-  // ── Hashing — 10000 دورة SHA-256 ──
   async function hashPassword(pw, salt = null, iterations = 10000) {
     const useSalt = salt || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
     const enc = new TextEncoder();
@@ -99,7 +96,6 @@ const DB = (() => {
     return pw === stored;
   }
 
-  // ── Settings ──
   const DEFAULT_SETTINGS = {
     month_price: 0, trial_months: 1,
     registration_mode: 'first_only',
@@ -142,7 +138,6 @@ const DB = (() => {
     return set(KEYS.rates, { usd: Number(safe.usd) || 0, sar: Number(safe.sar) || 0 });
   }
 
-  // ── Admins ──
   function getAdminList() {
     const list = get(KEYS.adminList, null);
     if (list && Array.isArray(list)) return list;
@@ -161,14 +156,12 @@ const DB = (() => {
     set(KEYS.adminList, getAdminList().filter(n => Number(n) !== Number(num)));
   }
 
-  // ── Clients ──
   function getAllClients() { const a = get(KEYS.clients, []); return Array.isArray(a) ? a : []; }
   function findClient(num) { return getAllClients().find(c => Number(c.num) === Number(num)); }
   function findClientByEmail(email) {
     return getAllClients().find(c => (c.email || '').toLowerCase() === (email || '').toLowerCase());
   }
 
-  // ── Validation ──
   function validateEmail(email, suffix) {
     const e = (email || '').trim();
     if (!e || e.includes(' ') || !e.includes('@') || e.length > 150) return false;
@@ -262,7 +255,6 @@ const DB = (() => {
     tables.forEach(k => set(k, get(k, []).filter(r => Number(r.client_num) !== Number(num))));
   }
 
-  // ── Session ──
   function currentSession() { return get(KEYS.currentSession, null); }
   function setSession(num) { set(KEYS.currentSession, { clientNum: Number(num), at: now() }); }
   function clearSession() { set(KEYS.currentSession, null); }
@@ -273,7 +265,6 @@ const DB = (() => {
     return c;
   }
 
-  // ── Login ──
   async function login(num, password) {
     const c = findClient(num);
     if (!c) throw new Error('رقم العميل غير موجود');
@@ -306,7 +297,6 @@ const DB = (() => {
     clearSession();
   }
 
-  // ── Subscription ──
   function subscriptionStatus(client) {
     if (!client) return { ok: false, expired: true, blocked: true, days: null };
     const dl = daysBetween(now(), client.expiry_date);
@@ -321,7 +311,6 @@ const DB = (() => {
     return labels[months] || `${months} شهر`;
   }
 
-  // ── Sub Requests ──
   function createSubRequest({ client_num, months, amount, note = '' }) {
     const reqs = get(KEYS.subRequests, []);
     const id = generateId();
@@ -409,7 +398,6 @@ const DB = (() => {
     });
   }
 
-  // ── Inquiries ──
   function addInquiry(data) {
     const arr = get(KEYS.inquiries, []);
     arr.unshift({ id: generateId(), ...data, created_at: now() });
@@ -425,22 +413,42 @@ const DB = (() => {
   function findProductByName(name) {
     return getProducts().find(p => (p.product_name||'').toLowerCase() === (name||'').toLowerCase());
   }
-  function createProduct({ product_name, price=0, selling_price=0, purchase_price=0, quantity=0, units_per_carton=1 }) {
+
+  // ✅ جديد: البحث عن منتج بالباركود
+  function findProductByBarcode(barcode) {
+    if (!barcode) return null;
+    const b = String(barcode).trim();
+    if (!b) return null;
+    return getProducts().find(p => String(p.barcode || '').trim() === b) || null;
+  }
+
+  function createProduct({ product_name, price=0, selling_price=0, purchase_price=0, quantity=0, units_per_carton=1, barcode=null }) {
     const products = getProducts();
     if (findProductByName(product_name)) throw new Error('المنتج موجود بنفس الاسم');
+    // منع تكرار الباركود
+    if (barcode) {
+      const existing = findProductByBarcode(barcode);
+      if (existing) throw new Error(`الباركود [${barcode}] مستخدم للمنتج: ${existing.product_name}`);
+    }
     const p = { product_id: generateId(), product_name, price, selling_price, purchase_price,
-      quantity, units_per_carton, is_active: 1, created_at: now() };
+      quantity, units_per_carton, barcode: barcode || null, is_active: 1, created_at: now() };
     products.push(p); set(KEYS.products, products); return p;
   }
   function updateProduct(id, patch) {
     const products = getProducts();
     const idx = products.findIndex(p => p.product_id === Number(id));
     if (idx < 0) return null;
+    // منع تكرار الباركود عند التحديث
+    if (patch.barcode) {
+      const existing = findProductByBarcode(patch.barcode);
+      if (existing && existing.product_id !== Number(id)) {
+        throw new Error(`الباركود [${patch.barcode}] مستخدم للمنتج: ${existing.product_name}`);
+      }
+    }
     products[idx] = { ...products[idx], ...patch };
     set(KEYS.products, products); return products[idx];
   }
 
-  // ── Shop Customers ──
   function getCustomers(clientNum) {
     return get(KEYS.shopCustomers, []).filter(c => Number(c.client_num) === Number(clientNum));
   }
@@ -454,7 +462,6 @@ const DB = (() => {
     all.push(cust); set(KEYS.shopCustomers, all); return cust;
   }
 
-  // ── Sales ──
   function newInvoiceNum(clientNum) {
     const all = [...get(KEYS.cashSales, []), ...get(KEYS.networkSales, []), ...get(KEYS.shopDebts, [])]
       .filter(s => Number(s.client_num) === Number(clientNum));
@@ -556,22 +563,24 @@ const DB = (() => {
     arr.push(r); set(KEYS.imports, arr);
     const existing = findProductByName(row.product_name);
     const totalQty = Number(row.number_of_cartons) * Number(row.inside_carton);
+    const bc = row.barcode ? String(row.barcode).trim() : null;
     if (existing) {
       updateProduct(existing.product_id, {
         price: Number(row.single_item_price), selling_price: Number(row.single_item_price),
         purchase_price: Number(row.item_cost), quantity: (existing.quantity || 0) + totalQty,
         units_per_carton: Number(row.inside_carton),
+        barcode: bc || existing.barcode || null,
       });
     } else {
       createProduct({ product_name: row.product_name, price: Number(row.single_item_price),
         selling_price: Number(row.single_item_price), purchase_price: Number(row.item_cost),
-        quantity: totalQty, units_per_carton: Number(row.inside_carton) });
+        quantity: totalQty, units_per_carton: Number(row.inside_carton),
+        barcode: bc });
     }
     logAudit('IMPORT', row.client_num, `${row.product_name} x${totalQty}`);
     return r;
   }
 
-  // ── Personal CRUD ──
   function crudOps(key, idField) {
     return {
       list(clientNum) { return get(key, []).filter(r => Number(r.client_num) === Number(clientNum)); },
@@ -669,7 +678,6 @@ const DB = (() => {
     return top ? { category: top, total: max } : null;
   }
 
-  // ── Notifications ──
   function addNotification(clientNum, title, body) {
     const arr = get(KEYS.notifications, []);
     arr.unshift({ id: generateId(), client_num: Number(clientNum), title, body, read: 0, created_at: now() });
@@ -685,7 +693,6 @@ const DB = (() => {
     if (changed) set(KEYS.notifications, arr);
   }
 
-  // ── Payment Proofs ──
   function addPaymentProof(reqId, clientNum, content) {
     const arr = get(KEYS.paymentProofs, []);
     const row = { id: generateId(), req_id: Number(reqId), client_num: Number(clientNum), content, created_at: now() };
@@ -695,7 +702,6 @@ const DB = (() => {
     return get(KEYS.paymentProofs, []).filter(p => Number(p.req_id) === Number(reqId));
   }
 
-  // ── Reminders ──
   function checkRemindersOnLogin(clientNum) {
     const c = findClient(clientNum);
     if (!c) return null;
@@ -717,7 +723,6 @@ const DB = (() => {
     };
   }
 
-  // ── Audit ──
   function logAudit(action, clientNum, details = '') {
     const arr = get(KEYS.auditLog, []);
     arr.unshift({ log_id: generateId(), client_num: clientNum, action, details, created_at: now() });
@@ -726,10 +731,7 @@ const DB = (() => {
   }
   function getAuditLog(limit = 100) { return get(KEYS.auditLog, []).slice(0, limit); }
 
-  // ═══════════════════════════════════════════════════════════
-  //              دوال التقارير الشاملة (Reports)
-  // ═══════════════════════════════════════════════════════════
-
+  // ── دوال التقارير ──
   function getTotalCartonsImported(clientNum) {
     return getImports(clientNum).reduce((s, i) => s + Number(i.number_of_cartons || 0), 0);
   }
@@ -846,7 +848,6 @@ const DB = (() => {
     };
   }
 
-  // ── Migration ──
   function runMigrations() {
     const clients = getAllClients();
     let changed = false;
@@ -861,7 +862,6 @@ const DB = (() => {
     updateSettings({});
   }
 
-  // ── Init ──
   function init() {
     if (!get(KEYS.settings)) setSettings(getSettings());
     if (!get(KEYS.rates)) setRates({ usd: 0, sar: 0 });
@@ -882,7 +882,7 @@ const DB = (() => {
     createSubRequest, getSubRequests, pendingSubRequests, approveSubRequest,
     rejectSubRequest, cancelSubRequest, grantSubscription,
     addInquiry, getInquiries, deleteInquiry, clearInquiries,
-    getProducts, findProduct, findProductByName, createProduct, updateProduct,
+    getProducts, findProduct, findProductByName, findProductByBarcode, createProduct, updateProduct,
     getCustomers, findCustomerByPhone, createCustomer,
     createSale, getCashSales, getNetworkSales, getShopDebts, getCustomerDebts,
     getDebtDetailsLimited, debtTotals, payDebt, settleFullDebt, getDebtArchive,
@@ -894,7 +894,6 @@ const DB = (() => {
     checkRemindersOnLogin,
     logAudit, getAuditLog,
     runMigrations,
-    // ── دوال التقارير (جديد) ──
     getTotalCartonsImported, searchProductsByName, getAllCustomersWithBalances,
     getSalesByPeriod, getDebtPaidTotal, getImportsByPeriod, getProfitsByPeriod,
     getBestSellingProduct, getProductMovement, getAdvancedAnalytics,
