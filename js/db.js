@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v11)
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v13)
+   (نسخة مطابقة للقديم 100% + ربط سحابي Firebase)
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
@@ -19,6 +20,61 @@ const DB = (() => {
     paymentProofs: 'payment_proofs',
     adminList: 'admin_list',
   };
+
+  // ── إعداد Firebase ──
+  const firebaseConfig = {
+    apiKey: "AIzaSyA42J3RGCSUUQuX67CrkxFdGccyeO5VX8s",
+    authDomain: "faisal-system.firebaseapp.com",
+    projectId: "faisal-system",
+    storageBucket: "faisal-system.firebasestorage.app",
+    messagingSenderId: "270763920155",
+    appId: "1:270763920155:web:b397be4591d06e70d7a1be"
+  };
+
+  let firestore = null;
+
+  // تحميل مكتبات Firebase ديناميكياً
+  if (!window.firebase) {
+    document.write('<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"><\/script>');
+    document.write('<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"><\/script>');
+  }
+
+  function initFirebase() {
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    firestore = firebase.firestore();
+    
+    const collectionsToSync = ['clients', 'products', 'shop_customers', 'shop_debts', 'cash_sales', 'network_sales', 'imports', 'personal_expenses', 'personal_income', 'personal_debts', 'personal_debt_payments', 'personal_notes', 'personal_goals', 'personal_obligations', 'sub_requests', 'inquiries', 'notifications', 'payment_proofs', 'audit_log', 'debt_archive'];
+    
+    collectionsToSync.forEach(col => {
+      firestore.collection(col).onSnapshot(snapshot => {
+        const data = [];
+        snapshot.forEach(doc => data.push(doc.data()));
+        localStorage.setItem(PREFIX + col, JSON.stringify(data));
+        window.dispatchEvent(new CustomEvent('ft-db-change', { detail: { key: col } }));
+      }, err => console.error("Sync error for", col, err));
+    });
+
+    firestore.collection('settings').doc('main').onSnapshot(doc => {
+      if (doc.exists) localStorage.setItem(PREFIX + KEYS.settings, JSON.stringify(doc.data()));
+    });
+    
+    firestore.collection('admin_list').doc('main').onSnapshot(doc => {
+      if (doc.exists) localStorage.setItem(PREFIX + KEYS.adminList, JSON.stringify(doc.data().nums || []));
+    });
+    
+    firestore.collection('rates').doc('main').onSnapshot(doc => {
+      if (doc.exists) localStorage.setItem(PREFIX + KEYS.rates, JSON.stringify(doc.data()));
+    });
+  }
+
+  // دالة حفظ التغييرات في السحابة
+  async function cloudSync(col, docId, data) {
+    if (!firestore) return;
+    try {
+      if (data === null) await firestore.collection(col).doc(String(docId)).delete();
+      else await firestore.collection(col).doc(String(docId)).set(data, { merge: true });
+    } catch (e) { console.error("Cloud sync error:", e); }
+  }
 
   function cleanText(str) {
     if (!str) return '';
@@ -113,11 +169,7 @@ const DB = (() => {
   };
 
   function getSettings() {
-    let stored;
-    try {
-      const raw = localStorage.getItem(PREFIX + KEYS.settings);
-      stored = raw ? JSON.parse(raw) : null;
-    } catch { stored = null; }
+    let stored = get(KEYS.settings, null);
     const base = (stored && typeof stored === 'object' && !Array.isArray(stored)) ? stored : {};
     const merged = Object.assign({}, DEFAULT_SETTINGS, base);
     if (merged.email_suffix) merged.email_suffix = cleanText(merged.email_suffix);
@@ -125,7 +177,10 @@ const DB = (() => {
   }
   function setSettings(s) {
     const safe = (s && typeof s === 'object' && !Array.isArray(s)) ? s : {};
-    return set(KEYS.settings, Object.assign({}, DEFAULT_SETTINGS, safe));
+    const data = Object.assign({}, DEFAULT_SETTINGS, safe);
+    set(KEYS.settings, data);
+    cloudSync('settings', 'main', data);
+    return data;
   }
   function updateSettings(patch) {
     const s = Object.assign(getSettings(), patch || {});
@@ -139,44 +194,43 @@ const DB = (() => {
   }
   function setRates(r) {
     const safe = (r && typeof r === 'object' && !Array.isArray(r)) ? r : {};
-    return set(KEYS.rates, { usd: Number(safe.usd) || 0, sar: Number(safe.sar) || 0 });
+    const data = { usd: Number(safe.usd) || 0, sar: Number(safe.sar) || 0 };
+    set(KEYS.rates, data);
+    cloudSync('rates', 'main', data);
+    return data;
   }
 
   function getAdminList() {
-  const list = get(KEYS.adminList, null);
-  if (list && Array.isArray(list) && list.length > 0) return list;
-  
-  // ✅ التحقق من الرقم والإيميل معاً
-  const masterNum = 770712071;
-  const masterEmail = 'mhmdbdalmjydaljbahy48@gmail.com';
-  const client = findClient(masterNum);
-  let initial = [];
-  
-  // إذا كان الحساب موجوداً وإيميله يطابق الإيميل المحدد، نضيفه كمدير
-  if (client && cleanText(client.email).toLowerCase() === cleanText(masterEmail).toLowerCase()) {
-    initial = [masterNum];
-  }
-  
-  set(KEYS.adminList, initial);
-  return initial;
+    const list = get(KEYS.adminList, null);
+    if (list && Array.isArray(list) && list.length > 0) return list;
+    
+    const masterNum = 770712071;
+    const masterEmail = 'mhmdbdalmjydaljbahy48@gmail.com';
+    const client = findClient(masterNum);
+    let initial = [];
+    
+    if (client && cleanText(client.email).toLowerCase() === cleanText(masterEmail).toLowerCase()) {
+      initial = [masterNum];
+    }
+    
+    set(KEYS.adminList, initial);
+    return initial;
   }
   function isAdmin(num) {
-  const client = findClient(num);
-  if (!client) return false;
-
-  // ✅ التحقق الصارم: يجب أن يتطابق رقم العميل والإيميل معاً
-  if (Number(num) === 770712071) {
-    return cleanText(client.email).toLowerCase() === cleanText('mhmdbdalmjydaljbahy48@gmail.com').toLowerCase();
-  }
-  
-  return getAdminList().map(Number).includes(Number(num));
+    const client = findClient(num);
+    if (!client) return false;
+    if (Number(num) === 770712071) {
+      return cleanText(client.email).toLowerCase() === cleanText('mhmdbdalmjydaljbahy48@gmail.com').toLowerCase();
+    }
+    return getAdminList().map(Number).includes(Number(num));
   }
   function addAdmin(num) {
     const list = getAdminList();
-    if (!list.map(Number).includes(Number(num))) { list.push(Number(num)); set(KEYS.adminList, list); }
+    if (!list.map(Number).includes(Number(num))) { list.push(Number(num)); set(KEYS.adminList, list); cloudSync('admin_list', 'main', { nums: list }); }
   }
   function removeAdmin(num) {
-    set(KEYS.adminList, getAdminList().filter(n => Number(n) !== Number(num)));
+    const list = getAdminList().filter(n => Number(n) !== Number(num));
+    set(KEYS.adminList, list); cloudSync('admin_list', 'main', { nums: list });
   }
 
   function getAllClients() { const a = get(KEYS.clients, []); return Array.isArray(a) ? a : []; }
@@ -189,21 +243,17 @@ const DB = (() => {
   function validateEmail(email, suffix) {
     let e = cleanText(email);
     if (!e || e.length > 150) return false;
-    
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(e)) return false;
-    
     if (suffix) {
       const s = cleanText(suffix);
       if (s && !e.toLowerCase().includes(s.toLowerCase())) return false;
     }
-    
     return true;
   }
 
   function getRegistrationMode() { return getSettings().registration_mode || 'first_only'; }
   
-  // ✅ التعديل 1: السماح بالتسجيل للجميع (ومنع التكرار موجود في createClient)
   function canRegister() {
     return { ok: true, why: '' }; 
   }
@@ -211,11 +261,8 @@ const DB = (() => {
   async function createClient({ num, name, email, password, months, shop_name, activity_type, location, shop_location, currency, account_type }) {
     const clients = getAllClients();
     if (clients.find(c => Number(c.num) === Number(num))) throw new Error('رقم العميل مستخدم من قبل');
-    
     const cleanEmail = cleanText(email);
-    if (clients.find(c => cleanText(c.email).toLowerCase() === cleanEmail.toLowerCase())) {
-      throw new Error('الإيميل مستخدم من قبل');
-    }
+    if (clients.find(c => cleanText(c.email).toLowerCase() === cleanEmail.toLowerCase())) throw new Error('الإيميل مستخدم من قبل');
     
     const trial = months !== undefined ? months : getSettings().trial_months || 1;
     const start = now();
@@ -235,6 +282,7 @@ const DB = (() => {
     };
     clients.push(client);
     set(KEYS.clients, clients);
+    cloudSync('clients', client.num, client);
     return client;
   }
 
@@ -247,6 +295,7 @@ const DB = (() => {
       clients[idx].expiry_date = addMonths(clients[idx].start_date, clients[idx].subscription_months);
     }
     set(KEYS.clients, clients);
+    cloudSync('clients', num, clients[idx]);
     return clients[idx];
   }
 
@@ -259,6 +308,10 @@ const DB = (() => {
     if (idx < 0) throw new Error('العميل غير موجود');
     clients[idx].num = newNum;
     set(KEYS.clients, clients);
+    
+    cloudSync('clients', oldNum, null);
+    cloudSync('clients', newNum, clients[idx]);
+
     ['shop_customers','shop_debts','cash_sales','network_sales','imports',
      'personal_expenses','personal_income','personal_debts','personal_debt_payments',
      'personal_notes','personal_goals','personal_obligations','sub_requests',
@@ -266,10 +319,17 @@ const DB = (() => {
       const rows = get(k, []);
       let changed = false;
       rows.forEach(r => { if (Number(r.client_num) === oldNum) { r.client_num = newNum; changed = true; } });
-      if (changed) set(k, rows);
+      if (changed) {
+        set(k, rows);
+        rows.filter(r => Number(r.client_num) === newNum).forEach(r => {
+           const id = r.product_id || r.debt_id || r.sale_id || r.import_id || r.expense_id || r.income_id || r.pdebt_id || r.payment_id || r.note_id || r.goal_id || r.obligation_id || r.req_id || r.id;
+           if (id) cloudSync(k, id, r);
+        });
+      }
     });
     const admins = getAdminList().map(n => Number(n) === oldNum ? newNum : n);
     set(KEYS.adminList, admins);
+    cloudSync('admin_list', 'main', { nums: admins });
     const sess = currentSession();
     if (sess && Number(sess.clientNum) === oldNum) setSession(newNum);
     return true;
@@ -278,6 +338,7 @@ const DB = (() => {
   function deleteClient(num) {
     set(KEYS.clients, getAllClients().filter(c => Number(c.num) !== Number(num)));
     removeAdmin(num);
+    cloudSync('clients', num, null);
     purgeClientData(num);
   }
 
@@ -286,7 +347,14 @@ const DB = (() => {
       'personal_expenses','personal_income','personal_debts','personal_debt_payments',
       'personal_notes','personal_goals','personal_obligations','sub_requests',
       'debt_archive','notifications','payment_proofs'];
-    tables.forEach(k => set(k, get(k, []).filter(r => Number(r.client_num) !== Number(num))));
+    tables.forEach(k => {
+      const toDelete = get(k, []).filter(r => Number(r.client_num) === Number(num));
+      toDelete.forEach(r => {
+         const id = r.product_id || r.debt_id || r.sale_id || r.import_id || r.expense_id || r.income_id || r.pdebt_id || r.payment_id || r.note_id || r.goal_id || r.obligation_id || r.req_id || r.id;
+         if (id) cloudSync(k, id, null);
+      });
+      set(k, get(k, []).filter(r => Number(r.client_num) !== Number(num)));
+    });
   }
 
   function currentSession() { return get(KEYS.currentSession, null); }
@@ -348,13 +416,15 @@ const DB = (() => {
   function createSubRequest({ client_num, months, amount, note = '' }) {
     const reqs = get(KEYS.subRequests, []);
     const id = generateId();
-    reqs.unshift({
+    const req = {
       req_id: id, client_num: Number(client_num), months: Number(months),
       amount: Number(amount), note: note || '',
       status: 'PENDING', created_at: now(),
       decided_at: null, decided_by: null, telegram_id: null,
-    });
+    };
+    reqs.unshift(req);
     set(KEYS.subRequests, reqs);
+    cloudSync('sub_requests', id, req);
     logAudit('SUB_REQUEST', client_num, `req=${id} months=${months} amount=${amount}`);
     return id;
   }
@@ -384,6 +454,7 @@ const DB = (() => {
     reqs[idx].decided_at = nowDate;
     reqs[idx].decided_by = byUser || null;
     set(KEYS.subRequests, reqs);
+    cloudSync('sub_requests', reqId, reqs[idx]);
     addNotification(r.client_num, '✅ تم تفعيل اشتراكك',
       `تم تفعيل اشتراكك لمدة ${durationLabel(r.months)}. ينتهي في ${new Date(addMonths(newStart, newMonths)).toLocaleDateString('ar-EG')}.`);
     logAudit('SUB_APPROVED', r.client_num, `req=${reqId}`);
@@ -397,6 +468,7 @@ const DB = (() => {
     reqs[idx].decided_at = now();
     reqs[idx].decided_by = byUser || null;
     set(KEYS.subRequests, reqs);
+    cloudSync('sub_requests', reqId, reqs[idx]);
     addNotification(reqs[idx].client_num, '❌ تم رفض طلب التجديد',
       `طلب التجديد #${reqId} لم يُقبل. للاستفسار تواصل مع الإدارة.`);
     return reqs[idx];
@@ -408,6 +480,7 @@ const DB = (() => {
     reqs[idx].status = 'CANCELLED';
     reqs[idx].decided_at = now();
     set(KEYS.subRequests, reqs);
+    cloudSync('sub_requests', reqId, reqs[idx]);
     return true;
   }
 
@@ -434,12 +507,21 @@ const DB = (() => {
 
   function addInquiry(data) {
     const arr = get(KEYS.inquiries, []);
-    arr.unshift({ id: generateId(), ...data, created_at: now() });
+    const id = generateId();
+    const row = { id, ...data, created_at: now() };
+    arr.unshift(row);
     set(KEYS.inquiries, arr);
+    cloudSync('inquiries', id, row);
   }
   function getInquiries() { const a = get(KEYS.inquiries, []); return Array.isArray(a) ? a : []; }
-  function deleteInquiry(id) { set(KEYS.inquiries, getInquiries().filter(i => i.id !== Number(id))); }
-  function clearInquiries() { set(KEYS.inquiries, []); }
+  function deleteInquiry(id) { 
+    set(KEYS.inquiries, getInquiries().filter(i => i.id !== Number(id))); 
+    cloudSync('inquiries', id, null);
+  }
+  function clearInquiries() { 
+    getInquiries().forEach(i => cloudSync('inquiries', i.id, null));
+    set(KEYS.inquiries, []); 
+  }
 
   function getProducts() { const a = get(KEYS.products, []); return Array.isArray(a) ? a : []; }
   function findProduct(id) { return getProducts().find(p => p.product_id === Number(id)); }
@@ -462,7 +544,9 @@ const DB = (() => {
     }
     const p = { product_id: generateId(), product_name, price, selling_price, purchase_price,
       quantity, units_per_carton, barcode: barcode || null, is_active: 1, created_at: now() };
-    products.push(p); set(KEYS.products, products); return p;
+    products.push(p); set(KEYS.products, products); 
+    cloudSync('products', p.product_id, p);
+    return p;
   }
   function updateProduct(id, patch) {
     const products = getProducts();
@@ -475,7 +559,9 @@ const DB = (() => {
       }
     }
     products[idx] = { ...products[idx], ...patch };
-    set(KEYS.products, products); return products[idx];
+    set(KEYS.products, products); 
+    cloudSync('products', id, products[idx]);
+    return products[idx];
   }
 
   function getCustomers(clientNum) {
@@ -488,7 +574,9 @@ const DB = (() => {
     const all = get(KEYS.shopCustomers, []);
     if (all.find(c => Number(c.customer_phone) === Number(phone))) throw new Error('رقم الهاتف مستخدم من قبل');
     const cust = { customer_phone: Number(phone), client_num: Number(clientNum), customer_name: name, created_at: now() };
-    all.push(cust); set(KEYS.shopCustomers, all); return cust;
+    all.push(cust); set(KEYS.shopCustomers, all); 
+    cloudSync('shop_customers', `${clientNum}_${phone}`, cust);
+    return cust;
   }
 
   function newInvoiceNum(clientNum) {
@@ -511,10 +599,12 @@ const DB = (() => {
           single_price: Number(it.price), debt_amount: Number(it.total),
           paid_amount: 0, invoice_num: inv, debt_date: now() };
         debts.push(row); results.push(row);
+        cloudSync('shop_debts', row.debt_id, row);
       }
       set(KEYS.shopDebts, debts);
     } else {
       const key = kind === 'c' ? KEYS.cashSales : KEYS.networkSales;
+      const col = kind === 'c' ? 'cash_sales' : 'network_sales';
       const table = get(key, []);
       for (const it of items) {
         const profit = (Number(it.price) - Number(it.cost || 0)) * Number(it.qty);
@@ -524,6 +614,7 @@ const DB = (() => {
           single_price: Number(it.price), total_amount: Number(it.total),
           profit_amount: profit, invoice_num: inv, sale_date: now() };
         table.push(row); results.push(row);
+        cloudSync(col, row.sale_id, row);
       }
       set(key, table);
     }
@@ -565,6 +656,7 @@ const DB = (() => {
       const idx = debts.findIndex(d => d.debt_id === debt.debt_id);
       debts[idx].paid_amount = (debts[idx].paid_amount || 0) + toPay;
       remaining -= toPay;
+      cloudSync('shop_debts', debts[idx].debt_id, debts[idx]);
     }
     set(KEYS.shopDebts, debts);
     logAudit('DEBT_PAY', clientNum, `phone=${phone} amount=${amount}`);
@@ -574,7 +666,12 @@ const DB = (() => {
     const toArchive = all.filter(d => Number(d.client_num) === Number(clientNum) && Number(d.customer_phone) === Number(phone));
     if (toArchive.length) {
       const arch = get(KEYS.debtArchive, []);
-      toArchive.forEach(d => arch.push({ ...d, reason: 'PAID_FULL', archived_at: now() }));
+      toArchive.forEach(d => { 
+        const arcRow = { ...d, reason: 'PAID_FULL', archived_at: now() };
+        arch.push(arcRow); 
+        cloudSync('debt_archive', d.debt_id, arcRow);
+        cloudSync('shop_debts', d.debt_id, null);
+      });
       set(KEYS.debtArchive, arch);
     }
     set(KEYS.shopDebts, all.filter(d => !(Number(d.client_num) === Number(clientNum) && Number(d.customer_phone) === Number(phone))));
@@ -589,6 +686,7 @@ const DB = (() => {
     const arr = get(KEYS.imports, []);
     const r = { import_id: generateId(), ...row, import_date: now() };
     arr.push(r); set(KEYS.imports, arr);
+    cloudSync('imports', r.import_id, r);
     const existing = findProductByName(row.product_name);
     const totalQty = Number(row.number_of_cartons) * Number(row.inside_carton);
     const bc = row.barcode ? String(row.barcode).trim() : null;
@@ -609,31 +707,36 @@ const DB = (() => {
     return r;
   }
 
-  function crudOps(key, idField) {
+  function crudOps(key, idField, colName) {
     return {
       list(clientNum) { return get(key, []).filter(r => Number(r.client_num) === Number(clientNum)); },
       create(row) {
         const arr = get(key, []);
         const r = { [idField]: generateId(), ...row, created_at: now() };
-        arr.push(r); set(key, arr); return r;
+        arr.push(r); set(key, arr); 
+        cloudSync(colName, r[idField], r);
+        return r;
       },
       update(id, patch) {
         const arr = get(key, []);
         const idx = arr.findIndex(r => r[idField] === Number(id));
         if (idx < 0) return null;
         arr[idx] = { ...arr[idx], ...patch };
-        set(key, arr); return arr[idx];
+        set(key, arr); 
+        cloudSync(colName, id, arr[idx]);
+        return arr[idx];
       },
       delete(id, clientNum) {
         set(key, get(key, []).filter(r => !(r[idField] === Number(id) && Number(r.client_num) === Number(clientNum))));
+        cloudSync(colName, id, null);
       }
     };
   }
-  const expenses = crudOps(KEYS.personalExpenses, 'expense_id');
-  const incomes = crudOps(KEYS.personalIncome, 'income_id');
-  const notes = crudOps(KEYS.personalNotes, 'note_id');
-  const goals = crudOps(KEYS.personalGoals, 'goal_id');
-  const obligations = crudOps(KEYS.personalObligations, 'obligation_id');
+  const expenses = crudOps(KEYS.personalExpenses, 'expense_id', 'personal_expenses');
+  const incomes = crudOps(KEYS.personalIncome, 'income_id', 'personal_income');
+  const notes = crudOps(KEYS.personalNotes, 'note_id', 'personal_notes');
+  const goals = crudOps(KEYS.personalGoals, 'goal_id', 'personal_goals');
+  const obligations = crudOps(KEYS.personalObligations, 'obligation_id', 'personal_obligations');
 
   const pdebts = {
     list(clientNum) { return get(KEYS.personalDebts, []).filter(r => Number(r.client_num) === Number(clientNum)); },
@@ -650,20 +753,26 @@ const DB = (() => {
         if (row.reason) existing.reason = row.reason;
         existing.last_update = now();
         set(KEYS.personalDebts, arr);
+        cloudSync('personal_debts', existing.pdebt_id, existing);
         return existing;
       }
       const r = { pdebt_id: generateId(), ...row, created_at: now(), last_update: now() };
-      arr.push(r); set(KEYS.personalDebts, arr); return r;
+      arr.push(r); set(KEYS.personalDebts, arr); 
+      cloudSync('personal_debts', r.pdebt_id, r);
+      return r;
     },
     update(id, patch) {
       const arr = get(KEYS.personalDebts, []);
       const idx = arr.findIndex(r => r.pdebt_id === Number(id));
       if (idx < 0) return null;
       arr[idx] = { ...arr[idx], ...patch, last_update: now() };
-      set(KEYS.personalDebts, arr); return arr[idx];
+      set(KEYS.personalDebts, arr); 
+      cloudSync('personal_debts', id, arr[idx]);
+      return arr[idx];
     },
     delete(id, clientNum) {
       set(KEYS.personalDebts, get(KEYS.personalDebts, []).filter(r => !(r.pdebt_id === Number(id) && Number(r.client_num) === Number(clientNum))));
+      cloudSync('personal_debts', id, null);
       set(KEYS.personalDebtPayments, get(KEYS.personalDebtPayments, []).filter(r => !(r.pdebt_id === Number(id) && Number(r.client_num) === Number(clientNum))));
     }
   };
@@ -672,6 +781,7 @@ const DB = (() => {
     const arr = get(KEYS.personalDebtPayments, []);
     const row = { payment_id: generateId(), pdebt_id: Number(pdebtId), client_num: Number(clientNum), amount: Number(amount), note: note || '', created_at: now() };
     arr.push(row); set(KEYS.personalDebtPayments, arr);
+    cloudSync('personal_debt_payments', row.payment_id, row);
     return row;
   }
   function getDebtPayments(clientNum) {
@@ -688,6 +798,7 @@ const DB = (() => {
       const paid = o.last_paid_at ? new Date(o.last_paid_at) : null;
       if (!paid || paid.getFullYear() !== nowY || paid.getMonth() !== nowM) {
         o.is_paid_this_month = 0; changed = true;
+        cloudSync('personal_obligations', o.obligation_id, o);
       }
     });
     if (changed) set(KEYS.personalObligations, arr);
@@ -708,8 +819,10 @@ const DB = (() => {
 
   function addNotification(clientNum, title, body) {
     const arr = get(KEYS.notifications, []);
-    arr.unshift({ id: generateId(), client_num: Number(clientNum), title, body, read: 0, created_at: now() });
-    set(KEYS.notifications, arr);
+    const id = generateId();
+    const row = { id, client_num: Number(clientNum), title, body, read: 0, created_at: now() };
+    arr.unshift(row); set(KEYS.notifications, arr);
+    cloudSync('notifications', id, row);
   }
   function getNotifications(clientNum) {
     return get(KEYS.notifications, []).filter(n => Number(n.client_num) === Number(clientNum));
@@ -717,14 +830,17 @@ const DB = (() => {
   function markAllNotificationsRead(clientNum) {
     const arr = get(KEYS.notifications, []);
     let changed = false;
-    arr.forEach(n => { if (Number(n.client_num) === Number(clientNum) && !n.read) { n.read = 1; changed = true; } });
+    arr.forEach(n => { if (Number(n.client_num) === Number(clientNum) && !n.read) { n.read = 1; changed = true; cloudSync('notifications', n.id, n); } });
     if (changed) set(KEYS.notifications, arr);
   }
 
   function addPaymentProof(reqId, clientNum, content) {
     const arr = get(KEYS.paymentProofs, []);
-    const row = { id: generateId(), req_id: Number(reqId), client_num: Number(clientNum), content, created_at: now() };
-    arr.push(row); set(KEYS.paymentProofs, arr); return row;
+    const id = generateId();
+    const row = { id, req_id: Number(reqId), client_num: Number(clientNum), content, created_at: now() };
+    arr.push(row); set(KEYS.paymentProofs, arr); 
+    cloudSync('payment_proofs', id, row);
+    return row;
   }
   function getPaymentProofs(reqId) {
     return get(KEYS.paymentProofs, []).filter(p => Number(p.req_id) === Number(reqId));
@@ -753,9 +869,10 @@ const DB = (() => {
 
   function logAudit(action, clientNum, details = '') {
     const arr = get(KEYS.auditLog, []);
-    arr.unshift({ log_id: generateId(), client_num: clientNum, action, details, created_at: now() });
-    if (arr.length > 2000) arr.length = 2000;
-    set(KEYS.auditLog, arr);
+    const id = generateId();
+    const row = { log_id: id, client_num: clientNum, action, details, created_at: now() };
+    arr.unshift(row); if (arr.length > 2000) arr.length = 2000; set(KEYS.auditLog, arr);
+    cloudSync('audit_log', id, row);
   }
   function getAuditLog(limit = 100) { return get(KEYS.auditLog, []).slice(0, limit); }
 
@@ -884,12 +1001,16 @@ const DB = (() => {
       if (c.last_reminder_kind === undefined) { c.last_reminder_kind = null; changed = true; }
       if (c.last_reminder_at === undefined) { c.last_reminder_at = null; changed = true; }
     });
-    if (changed) set(KEYS.clients, clients);
+    if (changed) { 
+      set(KEYS.clients, clients); 
+      clients.forEach(c => cloudSync('clients', c.num, c));
+    }
     if (!get(KEYS.adminList, null)) getAdminList();
     updateSettings({});
   }
 
   function init() {
+    initFirebase(); // تهيئة السحابة
     if (!get(KEYS.settings)) setSettings(getSettings());
     if (!get(KEYS.rates)) setRates({ usd: 0, sar: 0 });
     runMigrations();
