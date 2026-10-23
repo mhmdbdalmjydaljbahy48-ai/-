@@ -27,17 +27,26 @@
       <div class="form-group"><label class="form-label">رقم العميل</label><input class="form-input" name="num" required placeholder="أدخل رقمك" autocomplete="username"></div>
       <div class="form-group"><label class="form-label">كلمة المرور</label><input class="form-input" type="password" name="password" required placeholder="••••••••" autocomplete="current-password"></div>
       <button type="submit" class="btn btn-primary btn-block mb-3"><i data-lucide="log-in"></i> دخول</button>
-      <div class="text-center"><a href="register.html">ليس لديك حساب؟ سجّل الآن</a></div>
+      <div class="text-center" id="registerLinkBox"><a href="register.html">ليس لديك حساب؟ سجّل الآن</a></div>
       <div class="text-center mt-2"><a href="index.html" style="color:var(--text-2)">← العودة للرئيسية</a></div>
     </form>
   </div>
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- ✅ التعديل 7: تحديث الكاش -->
-  <script src="js/db.js?v=14"></script>
+  <script src="js/db.js?v=15"></script>
   <script src="js/common.js?v=11"></script>
   <script src="js/auth.js?v=11"></script>
   <script>
     document.getElementById('loginForm').onsubmit = (e) => { e.preventDefault(); Auth.onLoginSubmit(e.target); };
+  </script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // إذا كان هذا الجهاز قد سجل حساباً من قبل، أخفِ رابط التسجيل
+    if (localStorage.getItem('ft_has_account')) {
+      const box = document.getElementById('registerLinkBox');
+      if (box) box.style.display = 'none';
+    }
+  });
   </script>
 </body>
 </html>
