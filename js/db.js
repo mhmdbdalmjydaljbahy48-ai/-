@@ -86,11 +86,20 @@ const DB = (() => {
 
   // دالة حفظ التغييرات في السحابة
   async function cloudSync(col, docId, data) {
-    if (!firestore) return;
-    try {
-      if (data === null) await firestore.collection(col).doc(String(docId)).delete();
-      else await firestore.collection(col).doc(String(docId)).set(data, { merge: true });
-    } catch (e) { console.error("Cloud sync error:", e); }
+  if (!firestore) return;
+  try {
+    if (data === null) {
+      await firestore.collection(col).doc(String(docId)).delete();
+    } else {
+      const globalCollections = ['settings', 'rates', 'admin_list'];
+      let dataToSave = { ...data };
+      if (!globalCollections.includes(col)) {
+         const uid = firebase.auth().currentUser ? firebase.auth().currentUser.uid : 'unknown';
+         dataToSave.userId = uid;
+      }
+      await firestore.collection(col).doc(String(docId)).set(dataToSave, { merge: true });
+    }
+  } catch (e) { console.error("Cloud sync error:", e); }
   }
 
   function cleanText(str) {
