@@ -50,6 +50,7 @@ const Auth = {
     try {
       const client = await this.register(data);
       DB.setSession(client.num);
+      localStorage.setItem('ft_has_account','true');
       UI.toast('✅ تم إنشاء الحساب وتفعيل الفترة التجريبية!', 'success');
       setTimeout(() => location.href = 'dashboard.html', 700);
     } catch (e) {
