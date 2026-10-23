@@ -71,7 +71,7 @@ const DB = (() => {
   const currentClient = JSON.parse(localStorage.getItem(PREFIX + KEYS.currentSession) || 'null');
   
   if (currentClient && Number(currentClient.clientNum) === 770712071) {
-    firebase.auth().signInWithEmailAndPassword('mhmdbdalmjydaljbahy48@gmail.com', 'كلمة_المرور_هنا')
+    firebase.auth().signInWithEmailAndPassword('mhmdbdalmjydaljbahy48@gmail.com', '770mm712071')
       .then((userCredential) => startSync(userCredential.user.uid))
       .catch(err => {
          console.error("Admin login failed:", err);
