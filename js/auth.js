@@ -61,6 +61,7 @@ const Auth = {
   async onLoginSubmit(form) {
     try {
       await this.login(form.num.value, form.password.value);
+      localStorage.setItem('ft_has_account','true');
       UI.toast('✅ مرحباً بعودتك!', 'success');
       setTimeout(() => location.href = 'dashboard.html', 500);
     } catch (e) {
