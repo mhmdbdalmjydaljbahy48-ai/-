@@ -40,13 +40,19 @@ const DB = (() => {
   }
 
   function initFirebase() {
-    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    firestore = firebase.firestore();
-    
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+  firestore = firebase.firestore();
+  
+  const startSync = (uid) => {
     const collectionsToSync = ['clients', 'products', 'shop_customers', 'shop_debts', 'cash_sales', 'network_sales', 'imports', 'personal_expenses', 'personal_income', 'personal_debts', 'personal_debt_payments', 'personal_notes', 'personal_goals', 'personal_obligations', 'sub_requests', 'inquiries', 'notifications', 'payment_proofs', 'audit_log', 'debt_archive'];
     
     collectionsToSync.forEach(col => {
-      firestore.collection(col).onSnapshot(snapshot => {
+      let query = firestore.collection(col);
+      if (firebase.auth().currentUser.email !== 'mhmdbdalmjydaljbahy48@gmail.com') {
+         query = query.where('userId', '==', uid);
+      }
+      
+      query.onSnapshot(snapshot => {
         const data = [];
         snapshot.forEach(doc => data.push(doc.data()));
         localStorage.setItem(PREFIX + col, JSON.stringify(data));
@@ -57,14 +63,25 @@ const DB = (() => {
     firestore.collection('settings').doc('main').onSnapshot(doc => {
       if (doc.exists) localStorage.setItem(PREFIX + KEYS.settings, JSON.stringify(doc.data()));
     });
-    
-    firestore.collection('admin_list').doc('main').onSnapshot(doc => {
-      if (doc.exists) localStorage.setItem(PREFIX + KEYS.adminList, JSON.stringify(doc.data().nums || []));
-    });
-    
     firestore.collection('rates').doc('main').onSnapshot(doc => {
       if (doc.exists) localStorage.setItem(PREFIX + KEYS.rates, JSON.stringify(doc.data()));
     });
+  };
+
+  const currentClient = JSON.parse(localStorage.getItem(PREFIX + KEYS.currentSession) || 'null');
+  
+  if (currentClient && Number(currentClient.clientNum) === 770712071) {
+    firebase.auth().signInWithEmailAndPassword('mhmdbdalmjydaljbahy48@gmail.com', 'كلمة_المرور_هنا')
+      .then((userCredential) => startSync(userCredential.user.uid))
+      .catch(err => {
+         console.error("Admin login failed:", err);
+         firebase.auth().signInAnonymously().then(userCredential => startSync(userCredential.uid));
+      });
+  } else {
+    firebase.auth().signInAnonymously()
+      .then((userCredential) => startSync(userCredential.uid))
+      .catch(error => console.error("Auth failed:", error));
+  }
   }
 
   // دالة حفظ التغييرات في السحابة
