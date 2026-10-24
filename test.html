@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>فحص إعدادات Firebase</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #1a1a1a; color: #fff; }
+    .box { padding: 12px; margin: 10px 0; border-radius: 8px; font-weight: bold; font-size: 14px; }
+    .success { background: #064e3b; border: 1px solid #10b981; color: #34d399; }
+    .error { background: #7f1d1d; border: 1px solid #ef4444; color: #f87171; }
+    .info { background: #1e3a8a; border: 1px solid #3b82f6; color: #60a5fa; }
+    .loading { background: #78350f; border: 1px solid #f59e0b; color: #fcd34d; }
+  </style>
+</head>
+<body>
+  <h2>🩺 الفحص الطبي لقاعدة البيانات</h2>
+  <p style="color:#aaa; font-size:14px;">هذه الصفحة تختبر الاتصال ولا تؤثر على بياناتك الحقيقية.</p>
+  <div id="results"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script>
+    const results = document.getElementById('results');
+    function log(msg, type = 'info') {
+      const div = document.createElement('div');
+      div.className = 'box ' + type;
+      div.innerHTML = msg;
+      results.appendChild(div);
+    }
+
+    async function runTest() {
+      log('1. جاري تهيئة Firebase...', 'loading');
+      try {
+        const firebaseConfig = {
+          apiKey: "AIzaSyA42J3RGCSUUQuX67CrkxFdGccyeO5VX8s",
+          authDomain: "faisal-system.firebaseapp.com",
+          projectId: "faisal-system",
+          storageBucket: "faisal-system.firebasestorage.app",
+          messagingSenderId: "270763920155",
+          appId: "1:270763920155:web:b397be4591d06e70d7a1be"
+        };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        log('✅ تم تهيئة Firebase بنجاح.', 'success');
+      } catch (e) {
+        log('❌ فشل تهيئة Firebase: ' + e.message, 'error');
+        return;
+      }
+
+      log('2. جاري اختبار تسجيل الدخول المجهول (Anonymous)...', 'loading');
+      let uid = null;
+      try {
+        const cred = await firebase.auth().signInAnonymously();
+        uid = cred.user.uid;
+        log('✅ تم تسجيل الدخول بنجاح. (UID: ' + uid + ')', 'success');
+      } catch (e) {
+        log('❌ فشل تسجيل الدخول المجهول: <br>' + e.message + '<br>👉 <b>الحل:</b> اذهب إلى Firebase -> Authentication -> Sign-in method وقم بتفعيل (Anonymous).', 'error');
+        return;
+      }
+
+      log('3. جاري اختبار الكتابة في قاعدة البيانات...', 'loading');
+      try {
+        const db = firebase.firestore();
+        await db.collection('diagnostic_test').doc(uid).set({
+          test_message: 'اختبار',
+          userId: uid,
+          time: new Date().toISOString()
+        });
+        log('✅ تم الكتابة في قاعدة البيانات بنجاح.', 'success');
+      } catch (e) {
+        log('❌ فشل الكتابة: <br>' + e.message + '<br>👉 <b>الحل:</b> اذهب إلى Firestore -> Rules وتأكد أنك وضعت الكود واضغطت Publish.', 'error');
+      }
+
+      log('4. جاري اختبار القراءة من قاعدة البيانات...', 'loading');
+      try {
+        const db = firebase.firestore();
+        const doc = await db.collection('diagnostic_test').doc(uid).get();
+        if (doc.exists) {
+          log('✅ تم قراءة البيانات بنجاح.', 'success');
+        } else {
+          log('❌ لم يتم العثور على البيانات (مشكلة في القراءة).', 'error');
+        }
+      } catch (e) {
+        log('❌ فشل القراءة: ' + e.message, 'error');
+      }
+      
+      log('🏁 انتهى الفحص!', 'info');
+    }
+
+    runTest();
+  </script>
+</body>
+</html>
