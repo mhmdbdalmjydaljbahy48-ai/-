@@ -1,6 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v13)
-   (نسخة مطابقة للقديم 100% + ربط سحابي Firebase)
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v14) - الإصلاح الشامل
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
@@ -32,18 +31,39 @@ const DB = (() => {
   };
 
   let firestore = null;
+  let firebaseReady = false;
 
-  // تحميل مكتبات Firebase ديناميكياً
-  if (!window.firebase) {
-    document.write('<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"><\/script>');
-    document.write('<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"><\/script>');
+  // دالة آمنة لتحميل المكتبات
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`فشل تحميل ${src}`));
+      document.head.appendChild(script);
+    });
   }
 
-  function initFirebase() {
+  async function initFirebase() {
+    if (!firebaseReady) {
+      try {
+        // تحميل مكتبات Firebase الأساسية + المصادقة + قاعدة البيانات
+        await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+        await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js');
+        await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js');
+        firebaseReady = true;
+      } catch (err) {
+        alert("❌ فشل تحميل مكتبات Firebase! تأكد من اتصالك بالإنترنت.");
+        console.error(err);
+        return;
+      }
+    }
+
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     firestore = firebase.firestore();
     
-    alert("✅ 1. تم تهيئة Firebase بنجاح في الكود"); // تنبيه التشخيص
+    alert("✅ 1. تم تهيئة Firebase و Firestore بنجاح!"); // تنبيه التشخيص
 
     const startSync = (uid) => {
       const collectionsToSync = ['clients', 'products', 'shop_customers', 'shop_debts', 'cash_sales', 'network_sales', 'imports', 'personal_expenses', 'personal_income', 'personal_debts', 'personal_debt_payments', 'personal_notes', 'personal_goals', 'personal_obligations', 'sub_requests', 'inquiries', 'notifications', 'payment_proofs', 'audit_log', 'debt_archive'];
@@ -75,18 +95,17 @@ const DB = (() => {
     if (currentClient && Number(currentClient.clientNum) === 770712071) {
       firebase.auth().signInWithEmailAndPassword('mhmdbdalmjydaljbahy48@gmail.com','770mm712071')
         .then((userCredential) => {
-          alert("✅ 2. تم تسجيل الدخول كـ مدير (Admin) بنجاح"); // تنبيه التشخيص
+          alert("✅ 2. تم تسجيل الدخول كـ مدير (Admin) بنجاح");
           startSync(userCredential.user.uid);
         })
         .catch(err => {
-           alert("❌ خطأ في تسجيل دخول المدير: " + err.message); // تنبيه التشخيص
-           console.error("Admin login failed:", err);
+           alert("❌ خطأ في تسجيل دخول المدير: " + err.message + "\nسيتم الدخول كزائر.");
            firebase.auth().signInAnonymously().then(userCredential => startSync(userCredential.uid));
         });
     } else {
       firebase.auth().signInAnonymously()
         .then((userCredential) => {
-          alert("⚠️ 3. تم تسجيل الدخول كـ زائر (Anonymous)"); // تنبيه التشخيص
+          alert("⚠️ 3. تم تسجيل الدخول كـ زائر (Anonymous)");
           startSync(userCredential.uid);
         })
         .catch(error => console.error("Auth failed:", error));
@@ -95,10 +114,10 @@ const DB = (() => {
 
   // دالة حفظ التغييرات في السحابة
   async function cloudSync(col, docId, data) {
-    alert("🚀 4. محاولة حفظ البيانات في مجموعة: " + col); // تنبيه التشخيص
+    alert("🚀 4. محاولة حفظ البيانات في مجموعة: " + col); 
     
     if (!firestore) {
-      alert("🛑 خطأ فادح: متغير firestore فارغ! (لم يتم تهيئة Firebase)"); // تنبيه التشخيص
+      alert("🛑 خطأ فادح: متغير firestore فارغ! الكود لم يكمل التهيئة بعد."); 
       return;
     }
     try {
@@ -112,10 +131,10 @@ const DB = (() => {
            dataToSave.userId = uid;
         }
         await firestore.collection(col).doc(String(docId)).set(dataToSave, { merge: true });
-        alert("✅ 5. تم الحفظ في السحابة بنجاح! المجموعة: " + col); // تنبيه التشخيص
+        alert("✅ 5. تم الحفظ في السحابة بنجاح! المجموعة: " + col);
       }
     } catch (e) { 
-      alert("❌ 6. فشل الحفظ في السحابة! الخطأ: " + e.message); // تنبيه التشخيص
+      alert("❌ 6. فشل الحفظ في السحابة! الخطأ: " + e.message);
       console.error("Cloud sync error:", e); 
     }
   }
@@ -1053,8 +1072,8 @@ const DB = (() => {
     updateSettings({});
   }
 
-  function init() {
-    initFirebase(); // تهيئة السحابة
+  async function init() {
+    await initFirebase(); // انتظر حتى يتم تحميل Firebase وتهيئته بالكامل
     if (!get(KEYS.settings)) setSettings(getSettings());
     if (!get(KEYS.rates)) setRates({ usd: 0, sar: 0 });
     runMigrations();
