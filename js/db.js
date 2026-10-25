@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v14) - الإصلاح الشامل
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v15) - بدون تنبيهات
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
@@ -48,22 +48,18 @@ const DB = (() => {
   async function initFirebase() {
     if (!firebaseReady) {
       try {
-        // تحميل مكتبات Firebase الأساسية + المصادقة + قاعدة البيانات
         await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
         await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js');
         await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js');
         firebaseReady = true;
       } catch (err) {
-        alert("❌ فشل تحميل مكتبات Firebase! تأكد من اتصالك بالإنترنت.");
-        console.error(err);
+        console.error("فشل تحميل مكتبات Firebase!", err);
         return;
       }
     }
 
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     firestore = firebase.firestore();
-    
-    alert("✅ 1. تم تهيئة Firebase و Firestore بنجاح!"); // تنبيه التشخيص
 
     const startSync = (uid) => {
       const collectionsToSync = ['clients', 'products', 'shop_customers', 'shop_debts', 'cash_sales', 'network_sales', 'imports', 'personal_expenses', 'personal_income', 'personal_debts', 'personal_debt_payments', 'personal_notes', 'personal_goals', 'personal_obligations', 'sub_requests', 'inquiries', 'notifications', 'payment_proofs', 'audit_log', 'debt_archive'];
@@ -82,11 +78,18 @@ const DB = (() => {
         }, err => console.error("Sync error for", col, err));
       });
 
+      // تحديث واجهة الإعدادات والأسعار فوراً عند جلبها من السحابة
       firestore.collection('settings').doc('main').onSnapshot(doc => {
-        if (doc.exists) localStorage.setItem(PREFIX + KEYS.settings, JSON.stringify(doc.data()));
+        if (doc.exists) {
+          localStorage.setItem(PREFIX + KEYS.settings, JSON.stringify(doc.data()));
+          window.dispatchEvent(new CustomEvent('ft-db-change', { detail: { key: KEYS.settings } }));
+        }
       });
       firestore.collection('rates').doc('main').onSnapshot(doc => {
-        if (doc.exists) localStorage.setItem(PREFIX + KEYS.rates, JSON.stringify(doc.data()));
+        if (doc.exists) {
+          localStorage.setItem(PREFIX + KEYS.rates, JSON.stringify(doc.data()));
+          window.dispatchEvent(new CustomEvent('ft-db-change', { detail: { key: KEYS.rates } }));
+        }
       });
     };
 
@@ -95,29 +98,25 @@ const DB = (() => {
     if (currentClient && Number(currentClient.clientNum) === 770712071) {
       firebase.auth().signInWithEmailAndPassword('mhmdbdalmjydaljbahy48@gmail.com','770mm712071')
         .then((userCredential) => {
-          alert("✅ 2. تم تسجيل الدخول كـ مدير (Admin) بنجاح");
           startSync(userCredential.user.uid);
         })
         .catch(err => {
-           alert("❌ خطأ في تسجيل دخول المدير: " + err.message + "\nسيتم الدخول كزائر.");
+           console.error("Admin login failed:", err);
            firebase.auth().signInAnonymously().then(userCredential => startSync(userCredential.uid));
         });
     } else {
       firebase.auth().signInAnonymously()
         .then((userCredential) => {
-          alert("⚠️ 3. تم تسجيل الدخول كـ زائر (Anonymous)");
           startSync(userCredential.uid);
         })
         .catch(error => console.error("Auth failed:", error));
     }
   }
 
-  // دالة حفظ التغييرات في السحابة
+  // دالة حفظ التغييرات في السحابة (بدون تنبيهات)
   async function cloudSync(col, docId, data) {
-    alert("🚀 4. محاولة حفظ البيانات في مجموعة: " + col); 
-    
     if (!firestore) {
-      alert("🛑 خطأ فادح: متغير firestore فارغ! الكود لم يكمل التهيئة بعد."); 
+      console.error("خطأ فادح: متغير firestore فارغ! الكود لم يكمل التهيئة بعد."); 
       return;
     }
     try {
@@ -131,10 +130,8 @@ const DB = (() => {
            dataToSave.userId = uid;
         }
         await firestore.collection(col).doc(String(docId)).set(dataToSave, { merge: true });
-        alert("✅ 5. تم الحفظ في السحابة بنجاح! المجموعة: " + col);
       }
     } catch (e) { 
-      alert("❌ 6. فشل الحفظ في السحابة! الخطأ: " + e.message);
       console.error("Cloud sync error:", e); 
     }
   }
@@ -431,7 +428,25 @@ const DB = (() => {
   }
 
   async function login(num, password) {
-    const c = findClient(num);
+    let c = findClient(num);
+    
+    // 🚀 التعديل الجديد: إذا لم يجد الحساب في المتصفح، ابحث عنه في السحابة
+    if (!c && firestore) {
+      try {
+        const doc = await firestore.collection('clients').doc(String(num)).get();
+        if (doc.exists) {
+          c = doc.data();
+          const clients = getAllClients();
+          if (!clients.find(cl => Number(cl.num) === Number(num))) {
+            clients.push(c);
+            set(KEYS.clients, clients);
+          }
+        }
+      } catch (e) {
+        console.error("Cloud fetch error:", e);
+      }
+    }
+
     if (!c) throw new Error('رقم العميل غير موجود');
     const locked = c.locked_until ? new Date(c.locked_until) : null;
     if (locked && locked > new Date()) {
@@ -453,7 +468,7 @@ const DB = (() => {
     updateClient(num, patch);
     setSession(c.num);
     logAudit('LOGIN', c.num);
-    return findClient(num);
+    return findClient(num) || c;
   }
 
   function logout() {
@@ -1069,11 +1084,10 @@ const DB = (() => {
       clients.forEach(c => cloudSync('clients', c.num, c));
     }
     if (!get(KEYS.adminList, null)) getAdminList();
-    updateSettings({});
   }
 
   async function init() {
-    await initFirebase(); // انتظر حتى يتم تحميل Firebase وتهيئته بالكامل
+    await initFirebase(); 
     if (!get(KEYS.settings)) setSettings(getSettings());
     if (!get(KEYS.rates)) setRates({ usd: 0, sar: 0 });
     runMigrations();
