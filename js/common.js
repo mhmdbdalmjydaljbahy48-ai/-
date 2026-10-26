@@ -368,10 +368,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
    // ✅ تحديث الواجهة تلقائياً عند تغيير الأسعار من الإدارة
 window.addEventListener('ft-db-change', (e) => {
-  if (e.detail.key === 'settings' || e.detail.key === 'rates') {
+  if (e.detail.key === DB.KEYS.settings || e.detail.key === DB.KEYS.rates) {
     if (typeof SubPage !== 'undefined' && SubPage.render) SubPage.render();
     if (typeof Shop !== 'undefined' && Shop.updateCalcRates) Shop.updateCalcRates();
   }
+});
 });
 
 window.UI = UI;
