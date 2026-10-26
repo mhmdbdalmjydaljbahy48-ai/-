@@ -1,5 +1,5 @@
-/* ═══════════════════════════════════════════════════════════
-   ✨️ FT — المصادقة — النسخة المطوّرة (v6)
+٧/* ═══════════════════════════════════════════════════════════
+   ✨️ FT — المصادقة — النسخة المطوّرة (v7)
    ═══════════════════════════════════════════════════════════ */
 
 const Auth = {
@@ -48,21 +48,29 @@ const Auth = {
       password: form.password.value,
     };
     try {
-      await this.register(data);
+      const result = await this.register(data);
       
-      // ✅ التعديل: إظهار رسالة الموافقة بدلاً من الدخول
-      UI.modal({
-        title: '⏳ طلبك قيد المراجعة',
-        content: `<div style="text-align:center">
-                    <div style="font-size:3rem;margin-bottom:15px">📩</div>
-                    <p class="mb-3" style="font-size:1.1rem">تم إرسال طلب إنشاء الحساب بنجاح.</p>
-                    <p class="text-muted mb-3">سيقوم فريق الإدارة بمراجعة طلبك وتفعيل حسابك في أقرب وقت. يرجى العودة لاحقاً وتسجيل الدخول.</p>
-                    <a href="index.html" class="btn btn-primary btn-block mt-3">العودة للرئيسية</a>
-                  </div>`,
-        onOpen: (el) => { el.querySelector('[data-close]').style.display = 'none'; }
-      });
+      if (result.isPendingApproval) {
+        // حالة الحساب المحذوف سابقاً: إظهار رسالة الانتظار
+        UI.modal({
+          title: '⏳ طلبك قيد المراجعة',
+          content: `<div style="text-align:center">
+                      <div style="font-size:3rem;margin-bottom:15px">📩</div>
+                      <p class="mb-3" style="font-size:1.1rem;font-weight:bold">كان لديك حساب سابق وقمت بحذفه.</p>
+                      <p class="text-muted mb-3">لقد تم إرسال طلبك للإدارة. يرجى الانتظار حتى يتم استرداد حسابك أو الموافقة على إنشائه من جديد.</p>
+                      <a href="index.html" class="btn btn-primary btn-block mt-3">العودة للرئيسية</a>
+                    </div>`,
+          onOpen: (el) => { el.querySelector('[data-close]').style.display = 'none'; }
+        });
+        form.reset();
+      } else {
+        // حالة الحساب الجديد: دخول مباشر
+        DB.setSession(result.client.num);
+        localStorage.setItem('ft_has_account','true');
+        UI.toast('✅ تم إنشاء الحساب وتفعيل الفترة التجريبية!', 'success');
+        setTimeout(() => location.href = 'dashboard.html', 700);
+      }
       
-      form.reset();
     } catch (e) {
       UI.toast(e.message, 'error');
     }
