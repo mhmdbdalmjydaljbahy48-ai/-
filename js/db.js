@@ -34,6 +34,7 @@ const DB = (() => {
   let firestore = null;
   let firebaseReady = false;
 
+  // دالة آمنة لتحميل المكتبات
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
@@ -309,17 +310,14 @@ const DB = (() => {
   function getRegistrationMode() { return getSettings().registration_mode || 'first_only'; }
   function canRegister() { return { ok: true, why: '' }; }
 
-  // ✅ التعديل الجديد: التسجيل العادي مباشر، والمحذوف يذهب للإدارة
   async function createClient({ num, name, email, password, months, shop_name, activity_type, location, shop_location, currency, account_type }) {
     const clients = getAllClients();
     let existingClient = findClient(num);
     
-    // 1. إذا كان الحساب موجوداً ونشطاً -> رفض
     if (existingClient && existingClient.status !== 'pending_deletion') {
       throw new Error('رقم العميل مسجل مسبقاً');
     }
     
-    // 2. الفحص السحابي
     if (firestore) {
       const doc = await firestore.collection('clients').doc(String(num)).get();
       if (doc.exists) {
@@ -351,9 +349,7 @@ const DB = (() => {
       created_at: now()
     };
 
-    // 3. القرار: هل هو حساب محذوف سابقاً أم جديد؟
     if (existingClient && existingClient.status === 'pending_deletion') {
-      // محذوف سابقاً -> يذهب لطلبات الإدارة
       client.status = 'pending_approval';
       const pList = get(KEYS.pendingClients, []);
       pList.push(client);
@@ -361,7 +357,6 @@ const DB = (() => {
       cloudSync('pending_clients', client.num, client);
       return { isPendingApproval: true };
     } else {
-      // حساب جديد -> يسجل طبيعي
       clients.push(client);
       set(KEYS.clients, clients);
       cloudSync('clients', client.num, client);
