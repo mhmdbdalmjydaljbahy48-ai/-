@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — المصادقة — النسخة المطوّرة (v5)
+   ✨️ FT — المصادقة — النسخة المطوّرة (v6)
    ═══════════════════════════════════════════════════════════ */
 
 const Auth = {
@@ -48,11 +48,21 @@ const Auth = {
       password: form.password.value,
     };
     try {
-      const client = await this.register(data);
-      DB.setSession(client.num);
-      localStorage.setItem('ft_has_account','true');
-      UI.toast('✅ تم إنشاء الحساب وتفعيل الفترة التجريبية!', 'success');
-      setTimeout(() => location.href = 'dashboard.html', 700);
+      await this.register(data);
+      
+      // ✅ التعديل: إظهار رسالة الموافقة بدلاً من الدخول
+      UI.modal({
+        title: '⏳ طلبك قيد المراجعة',
+        content: `<div style="text-align:center">
+                    <div style="font-size:3rem;margin-bottom:15px">📩</div>
+                    <p class="mb-3" style="font-size:1.1rem">تم إرسال طلب إنشاء الحساب بنجاح.</p>
+                    <p class="text-muted mb-3">سيقوم فريق الإدارة بمراجعة طلبك وتفعيل حسابك في أقرب وقت. يرجى العودة لاحقاً وتسجيل الدخول.</p>
+                    <a href="index.html" class="btn btn-primary btn-block mt-3">العودة للرئيسية</a>
+                  </div>`,
+        onOpen: (el) => { el.querySelector('[data-close]').style.display = 'none'; }
+      });
+      
+      form.reset();
     } catch (e) {
       UI.toast(e.message, 'error');
     }
