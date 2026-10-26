@@ -32,7 +32,7 @@ const Admin = {
 
   renderStats() {
     const clients = DB.getAllClients();
-    const pending = DB.pendingSubRequests().length;
+    const pending = DB.pendingSubRequests().length + DB.getPendingClients().length + DB.getDeletionRequests().length;
     const active = clients.filter(c => DB.subscriptionStatus(c).ok).length;
     const expired = clients.length - active;
     const shops = clients.filter(c => c.account_type === 'تجاري').length;
@@ -51,7 +51,7 @@ const Admin = {
       <div class="card"><h4 class="text-muted">إجمالي المشتركين</h4><div style="font-size:2rem;font-weight:900">${clients.length}</div></div>
       <div class="card"><h4 class="text-muted">نشط</h4><div style="font-size:2rem;font-weight:900;color:var(--success)">${active}</div></div>
       <div class="card"><h4 class="text-muted">منتهي/موقوف</h4><div style="font-size:2rem;font-weight:900;color:var(--danger)">${expired}</div></div>
-      <div class="card"><h4 class="text-muted">طلبات معلقة</h4><div style="font-size:2rem;font-weight:900;color:var(--amber)">${pending}</div></div>
+      <div class="card"><h4 class="text-muted">إجمالي الطلبات</h4><div style="font-size:2rem;font-weight:900;color:var(--amber)">${pending}</div></div>
       <div class="card"><h4 class="text-muted">تجاري / فردي</h4><div style="font-size:1.5rem;font-weight:900">${shops} / ${individuals}</div></div>
       <div class="card"><h4 class="text-muted">المنتجات</h4><div style="font-size:2rem;font-weight:900">${products}</div></div>
       <div class="card"><h4 class="text-muted">عملاء المتجر</h4><div style="font-size:2rem;font-weight:900">${totalCustomers}</div></div>
@@ -63,6 +63,35 @@ const Admin = {
   },
 
   renderPending() {
+    // 1. طلبات التسجيل الجديدة
+    const pClients = DB.getPendingClients();
+    document.getElementById('pendingClientsList').innerHTML = pClients.length ? pClients.map(c => `
+      <div class="flex-between mb-2" style="padding:10px;border-bottom:1px solid var(--border-2)">
+        <div>
+          <b>${UI.esc(c.name)}</b> (${c.num})<br>
+          <small class="text-muted">📧 ${UI.esc(c.email)}</small>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-sm btn-primary" onclick="Admin.approveReg(${c.num})">✅ موافقة</button>
+          <button class="btn btn-sm btn-danger" onclick="Admin.rejectReg(${c.num})">❌ رفض</button>
+        </div>
+      </div>`).join('') : '<p class="text-muted">لا طلبات تسجيل حالياً</p>';
+
+    // 2. طلبات حذف الحسابات
+    const dRequests = DB.getDeletionRequests();
+    document.getElementById('deletionRequestsList').innerHTML = dRequests.length ? dRequests.map(c => `
+      <div class="flex-between mb-2" style="padding:10px;border-bottom:1px solid var(--border-2); background: rgba(239,68,68,0.05)">
+        <div>
+          <b style="color:var(--danger)">${UI.esc(c.name)}</b> (${c.num})<br>
+          <small class="text-muted">طلب حذف حساب</small>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-sm btn-danger" onclick="Admin.approveDel(${c.num})">🗑️ حذف نهائي</button>
+          <button class="btn btn-sm btn-success" onclick="Admin.rejectDel(${c.num})">♻️ استرداد</button>
+        </div>
+      </div>`).join('') : '<p class="text-muted">لا طلبات حذف حالياً</p>';
+
+    // 3. طلبات التجديد
     const reqs = DB.pendingSubRequests();
     document.getElementById('pendingList').innerHTML = reqs.length ? reqs.map(r => {
       const c = DB.findClient(r.client_num);
@@ -74,7 +103,26 @@ const Admin = {
           <button class="btn btn-sm btn-danger" onclick="Admin.reject(${r.req_id})">❌ رفض</button>
         </div>
       </div>`;
-    }).join('') : '<p class="text-muted">لا طلبات معلقة</p>';
+    }).join('') : '<p class="text-muted">لا طلبات تجديد معلقة</p>';
+  },
+
+  approveReg(num) {
+    try { DB.approvePendingClient(num); UI.toast('✅ تم قبول الحساب وتفعيله', 'success'); this.render(); }
+    catch(e) { UI.toast(e.message, 'error'); }
+  },
+  rejectReg(num) {
+    UI.confirm({ title: 'رفض التسجيل', message: 'هل تريد رفض طلب التسجيل هذا؟', danger: true, onConfirm: () => {
+      DB.rejectPendingClient(num); UI.toast('تم رفض الطلب', 'success'); this.render();
+    }});
+  },
+  approveDel(num) {
+    UI.confirm({ title: 'حذف نهائي', message: 'تحذير: سيتم حذف جميع بيانات هذا العميل نهائياً من السحابة!', danger: true, onConfirm: () => {
+      DB.approveDeletion(num); UI.toast('🗑️ تم حذف الحساب نهائياً', 'success'); this.render();
+    }});
+  },
+  rejectDel(num) {
+    try { DB.rejectDeletion(num); UI.toast('♻️ تم استرداد الحساب بنجاح', 'success'); this.render(); }
+    catch(e) { UI.toast(e.message, 'error'); }
   },
 
   renderInquiries() {
@@ -311,6 +359,7 @@ const Admin = {
       onOpen: (el, close) => {
         el.querySelector('#btnAddU').onclick = async () => {
           try {
+            // هنا ننشئ الحساب مباشرة كمدير (لا يحتاج موافقة)
             const c = await DB.createClient({
               num: Number(el.querySelector('#uNum').value),
               name: el.querySelector('#uName').value,
@@ -318,6 +367,9 @@ const Admin = {
               password: el.querySelector('#uPass').value,
               months: Number(el.querySelector('#uMonths').value),
             });
+            // إزالة حالة الانتظار (لأن المدير أنشأه)
+            DB.approvePendingClient(c.num); 
+            
             if (el.querySelector('#uAdmin').checked) DB.addAdmin(c.num);
             DB.logAudit('ADMIN_CREATE', c.num, c.name);
             UI.toast('✅ تم إنشاء الحساب', 'success'); close(); this.render();
