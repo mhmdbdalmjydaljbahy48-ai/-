@@ -125,7 +125,7 @@ const DB = (() => {
       if (data === null) {
         await firestore.collection(col).doc(String(docId)).delete();
       } else {
-        const globalCollections = ['settings', 'rates', 'admin_list'];
+        const globalCollections = ['settings', 'rates', 'admin_list', 'notifications'];
         let dataToSave = { ...data };
         if (!globalCollections.includes(col) && col !== 'pending_clients') {
            const uid = firebase.auth().currentUser ? firebase.auth().currentUser.uid : 'unknown';
