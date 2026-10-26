@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v16) - حذف شامل
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v17) - كاملة ومطابقة للأصل
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
@@ -78,6 +78,7 @@ const DB = (() => {
         }, err => console.error("Sync error for", col, err));
       });
 
+      // تحديث واجهة الإعدادات والأسعار فوراً عند جلبها من السحابة
       firestore.collection('settings').doc('main').onSnapshot(doc => {
         if (doc.exists) {
           localStorage.setItem(PREFIX + KEYS.settings, JSON.stringify(doc.data()));
@@ -112,6 +113,7 @@ const DB = (() => {
     }
   }
 
+  // دالة حفظ التغييرات في السحابة (بدون تنبيهات)
   async function cloudSync(col, docId, data) {
     if (!firestore) {
       console.error("خطأ فادح: متغير firestore فارغ! الكود لم يكمل التهيئة بعد."); 
@@ -419,6 +421,18 @@ const DB = (() => {
     });
   }
 
+  function deleteMyAccount() {
+    const c = currentClient();
+    if (!c) return false;
+    if (Number(c.num) === 770712071) {
+      alert('⛔ لا يمكن للمدير الرئيسي حذف حسابه!');
+      return false;
+    }
+    deleteClient(c.num);
+    clearSession();
+    return true;
+  }
+
   function currentSession() { return get(KEYS.currentSession, null); }
   function setSession(num) { set(KEYS.currentSession, { clientNum: Number(num), at: now() }); }
   function clearSession() { set(KEYS.currentSession, null); }
@@ -432,6 +446,7 @@ const DB = (() => {
   async function login(num, password) {
     let c = findClient(num);
     
+    // 🚀 التعديل الجديد: إذا لم يجد الحساب في المتصفح، ابحث عنه في السحابة
     if (!c && firestore) {
       try {
         const doc = await firestore.collection('clients').doc(String(num)).get();
@@ -1106,7 +1121,7 @@ const DB = (() => {
     getSettings, setSettings, updateSettings, getRates, setRates,
     validateEmail, getRegistrationMode, canRegister,
     getAllClients, findClient, findClientByEmail, createClient, updateClient,
-    updateClientNum, deleteClient, purgeClientData,
+    updateClientNum, deleteClient, purgeClientData, deleteMyAccount,
     getAdminList, isAdmin, addAdmin, removeAdmin,
     currentSession, setSession, clearSession, currentClient, login, logout,
     subscriptionStatus, durationLabel,
