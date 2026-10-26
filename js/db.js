@@ -1,12 +1,12 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v19) - نظام الموافقات
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v20)
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
   const PREFIX = 'ft_';
   const KEYS = {
     users: 'users', accounts: 'user_accounts', clients: 'clients',
-    pendingClients: 'pending_clients', // طلبات التسجيل
+    pendingClients: 'pending_clients',
     subRequests: 'sub_requests', inquiries: 'inquiries', auditLog: 'audit_log',
     products: 'products', shopCustomers: 'shop_customers', shopDebts: 'shop_debts',
     cashSales: 'cash_sales', networkSales: 'network_sales', imports: 'imports',
@@ -34,7 +34,6 @@ const DB = (() => {
   let firestore = null;
   let firebaseReady = false;
 
-  // دالة آمنة لتحميل المكتبات
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
@@ -115,7 +114,6 @@ const DB = (() => {
     }
   }
 
-  // دالة حفظ التغييرات في السحابة
   async function cloudSync(col, docId, data) {
     if (!firestore) {
       console.error("خطأ فادح: متغير firestore فارغ! الكود لم يكمل التهيئة بعد."); 
@@ -278,7 +276,6 @@ const DB = (() => {
     return initial;
   }
   function isAdmin(num) {
-    // ✅ التعديل: يعتمد على الرقم فقط
     return Number(num) === 770712071 || getAdminList().map(Number).includes(Number(num));
   }
   function addAdmin(num) {
@@ -310,24 +307,30 @@ const DB = (() => {
   }
 
   function getRegistrationMode() { return getSettings().registration_mode || 'first_only'; }
-  
-  function canRegister() {
-    return { ok: true, why: '' }; 
-  }
+  function canRegister() { return { ok: true, why: '' }; }
 
+  // ✅ التعديل الجديد: التسجيل العادي مباشر، والمحذوف يذهب للإدارة
   async function createClient({ num, name, email, password, months, shop_name, activity_type, location, shop_location, currency, account_type }) {
     const clients = getAllClients();
-    const pending = get(KEYS.pendingClients, []);
+    let existingClient = findClient(num);
     
-    // ✅ الفحص السحابي
+    // 1. إذا كان الحساب موجوداً ونشطاً -> رفض
+    if (existingClient && existingClient.status !== 'pending_deletion') {
+      throw new Error('رقم العميل مسجل مسبقاً');
+    }
+    
+    // 2. الفحص السحابي
     if (firestore) {
       const doc = await firestore.collection('clients').doc(String(num)).get();
-      if (doc.exists) throw new Error('رقم العميل مسجل مسبقاً في النظام');
+      if (doc.exists) {
+        const data = doc.data();
+        if (data.status !== 'pending_deletion') {
+          throw new Error('رقم العميل مسجل مسبقاً');
+        }
+        existingClient = data;
+      }
       const pDoc = await firestore.collection('pending_clients').doc(String(num)).get();
       if (pDoc.exists) throw new Error('يوجد طلب تسجيل قيد المراجعة لهذا الرقم');
-    } else {
-      if (clients.find(c => Number(c.num) === Number(num))) throw new Error('رقم العميل مسجل مسبقاً');
-      if (pending.find(c => Number(c.num) === Number(num))) throw new Error('يوجد طلب تسجيل قيد المراجعة');
     }
 
     const cleanEmail = cleanText(email);
@@ -338,24 +341,32 @@ const DB = (() => {
     const client = {
       num: Number(num), name, email: cleanEmail,
       password_hash: await hashPassword(password),
-      subscription_months: trial,
-      subscription_duration: durationLabel(trial),
+      subscription_months: trial, subscription_duration: durationLabel(trial),
       money: 0, start_date: start, expiry_date: expiry,
       is_active: 1, fail_count: 0, locked_until: null,
       last_reminder_kind: null, last_reminder_at: null,
       account_type: account_type || null, shop_name: shop_name || null,
       activity_type: activity_type || null, location: location || null,
       shop_location: shop_location || null, currency: currency || null,
-      created_at: now(), status: 'pending_approval' // حالة الطلب
+      created_at: now()
     };
-    
-    // ✅ الحفظ في طلبات التسجيل بدلاً من الحسابات النشطة
-    const pList = get(KEYS.pendingClients, []);
-    pList.push(client);
-    set(KEYS.pendingClients, pList);
-    cloudSync('pending_clients', client.num, client);
-    
-    return client;
+
+    // 3. القرار: هل هو حساب محذوف سابقاً أم جديد؟
+    if (existingClient && existingClient.status === 'pending_deletion') {
+      // محذوف سابقاً -> يذهب لطلبات الإدارة
+      client.status = 'pending_approval';
+      const pList = get(KEYS.pendingClients, []);
+      pList.push(client);
+      set(KEYS.pendingClients, pList);
+      cloudSync('pending_clients', client.num, client);
+      return { isPendingApproval: true };
+    } else {
+      // حساب جديد -> يسجل طبيعي
+      clients.push(client);
+      set(KEYS.clients, clients);
+      cloudSync('clients', client.num, client);
+      return { isPendingApproval: false, client: client };
+    }
   }
 
   function getPendingClients() { const a = get(KEYS.pendingClients, []); return Array.isArray(a) ? a : []; }
@@ -381,7 +392,6 @@ const DB = (() => {
     cloudSync('pending_clients', num, null);
   }
 
-  // ✅ التعديل: طلب الحذف المؤقت
   function requestAccountDeletion(num) {
     const c = findClient(num);
     if (!c) return false;
@@ -390,14 +400,8 @@ const DB = (() => {
   }
 
   function getDeletionRequests() { return getAllClients().filter(c => c.status === 'pending_deletion'); }
-
-  function approveDeletion(num) {
-    deleteClient(num);
-  }
-
-  function rejectDeletion(num) {
-    updateClient(num, { status: 'active' });
-  }
+  function approveDeletion(num) { deleteClient(num); }
+  function rejectDeletion(num) { updateClient(num, { status: 'active' }); }
 
   function updateClient(num, patch) {
     const clients = getAllClients();
@@ -486,26 +490,18 @@ const DB = (() => {
 
   async function login(num, password) {
     let c = findClient(num);
-    
     if (!c && firestore) {
       try {
         const doc = await firestore.collection('clients').doc(String(num)).get();
         if (doc.exists) {
           c = doc.data();
           const clients = getAllClients();
-          if (!clients.find(cl => Number(cl.num) === Number(num))) {
-            clients.push(c);
-            set(KEYS.clients, clients);
-          }
+          if (!clients.find(cl => Number(cl.num) === Number(num))) { clients.push(c); set(KEYS.clients, clients); }
         }
-      } catch (e) {
-        console.error("Cloud fetch error:", e);
-      }
+      } catch (e) { console.error(e); }
     }
-
     if (!c) throw new Error('رقم العميل غير موجود');
     
-    // ✅ التعديل: التحقق من حالة الحساب
     if (c.status === 'pending_deletion') {
       throw new Error('⛔ تم حذف هذا الحساب سابقاً. يرجى التواصل مع الإدارة للاسترداد.');
     }
@@ -545,7 +541,6 @@ const DB = (() => {
   function subscriptionStatus(client) {
     if (!client) return { ok: false, expired: true, blocked: true, days: null };
     const dl = daysBetween(now(), client.expiry_date);
-    // ✅ التعديل: اعتبار الحساب المحذوف مؤقتاً كـ موقوف
     const blocked = Number(client.is_active) === 0 || client.status === 'pending_deletion';
     const expired = dl < 0;
     return { ok: !blocked && !expired, blocked, expired, days: dl, expiry: client.expiry_date };
