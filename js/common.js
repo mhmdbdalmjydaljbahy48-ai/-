@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — المكونات المشتركة — النسخة النهائية (v4)
+   ✨️ FT — المكونات المشتركة — النسخة النهائية (v5)
    ═══════════════════════════════════════════════════════════ */
 
 const UI = {
@@ -60,6 +60,41 @@ const UI = {
         </div>`,
       onOpen: (el, close) => {
         el.querySelector('[data-yes]').onclick = () => { close(); onConfirm && onConfirm(); };
+      }
+    });
+  },
+
+  // ✅ التعديل: نافذة تأكيد حذف الحساب (تطلب من المستخدم إرسال الطلب للإدارة)
+  confirmDeleteAccount() {
+    const client = DB.currentClient();
+    if (!client) return;
+    if (DB.isAdmin(client.num)) return this.toast('لا يمكن للمدير حذف حسابه من هنا', 'error');
+    
+    this.modal({
+      title: '⚠️ حذف الحساب نهائياً',
+      content: `<div style="text-align:center;padding:10px 0">
+                  <div style="font-size:3rem;margin-bottom:15px;color:var(--danger)">🗑️</div>
+                  <p class="mb-3" style="font-size:1.1rem;font-weight:700">هل أنت متأكد من رغبتك في حذف حسابك؟</p>
+                  <div class="card mb-3" style="background:rgba(239,68,68,0.1);border-color:var(--danger);text-align:right">
+                    <p style="margin:0;color:var(--danger);font-weight:700">⚠️ تحذير هام:</p>
+                    <ul style="margin:10px 0;padding-right:20px;color:var(--text-2);font-size:.9rem">
+                      <li>سيتم إيقاف حسابك فوراً ولن تتمكن من الدخول.</li>
+                      <li>سيتم إرسال طلب للإدارة لحذف جميع بياناتك (مبيعات، ديون، منتجات).</li>
+                      <li>إذا قمت بتسجيل حساب جديد، سيتم مراجعته من قبل الإدارة.</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="flex gap-2 mt-4">
+                  <button class="btn btn-danger" style="flex:1" data-del>نعم، أرسل طلب الحذف</button>
+                  <button class="btn btn-ghost" style="flex:1" data-close>إلغاء</button>
+                </div>`,
+      onOpen: (el, close) => {
+        el.querySelector('[data-del]').onclick = () => {
+          DB.requestAccountDeletion(client.num);
+          DB.clearSession();
+          this.toast('تم إرسال طلب الحذف للإدارة. سيتم تسجيل خروجك.', 'success');
+          setTimeout(() => location.href = 'index.html', 1500);
+        };
       }
     });
   },
@@ -172,6 +207,24 @@ const UI = {
       const href = link.getAttribute('href');
       if (href && href === page) link.classList.add('active');
     });
+
+    // ✅ حقن زر حذف الحساب في القائمة الجانبية
+    const footer = sidebar.querySelector('.sidebar-footer');
+    if (footer && !footer.querySelector('.btn-delete-account')) {
+       const btn = document.createElement('button');
+       btn.className = 'btn btn-danger btn-block btn-sm mt-2 btn-delete-account';
+       btn.style.background = '#dc3545';
+       btn.style.color = '#fff';
+       btn.style.border = 'none';
+       btn.style.transition = 'all 0.3s';
+       btn.innerHTML = '<i data-lucide="trash-2"></i> حذف حسابي نهائياً';
+       btn.onclick = () => UI.confirmDeleteAccount();
+       footer.appendChild(btn);
+       
+       // إخفاء الزر إذا كان المستخدم مديراً
+       const c = DB.currentClient();
+       if (c && DB.isAdmin(c.num)) btn.style.display = 'none';
+    }
   },
   initTopbar() {
     const themeBtn = document.querySelector('[data-theme-toggle]');
@@ -210,8 +263,6 @@ const UI = {
     if (!d) return '—';
     try { return new Date(d).toLocaleString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return d; }
   },
-  
-  // ✅ التعديل 2: إظهار الوقت المتبقي بالأيام والساعات والدقائق
   fmtRemaining(expiryDate) {
     if (!expiryDate) return '—';
     const diff = new Date(expiryDate) - new Date();
