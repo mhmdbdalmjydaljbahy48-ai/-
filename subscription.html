@@ -48,6 +48,28 @@
     </div>
   </main>
 
+  <!-- زر حذف الحساب -->
+<button class="btn btn-danger mt-3" onclick="requestDeleteAccount()" style="background-color: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 5px;">
+  🗑️ حذف حسابي نهائياً
+</button>
+
+<script>
+function requestDeleteAccount() {
+  // استخدام دالة التأكيد الخاصة بالنظام UI.confirm
+  UI.confirm({
+    title: '⚠️ حذف الحساب نهائياً',
+    message: 'هل أنت متأكد من حذف حسابك وجميع بياناتك (المنتجات، المبيعات، الديون، إلخ) نهائياً؟ لا يمكن التراجع عن هذا الإجراء!',
+    danger: true,
+    onConfirm: () => {
+      if (DB.deleteMyAccount()) {
+        UI.toast('🗑️ تم حذف حسابك وجميع بياناتك بنجاح', 'success');
+        setTimeout(() => location.href = 'index.html', 1500); // توجيه للرئيسية
+      }
+    }
+  });
+}
+</script>
+
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- ✅ التعديل 7: تحديث الكاش -->
   <script src="js/db.js?v=14"></script>
