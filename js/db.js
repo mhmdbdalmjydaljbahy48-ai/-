@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v17) - كاملة ومطابقة للأصل
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v18) - حذف حساب المدير
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
@@ -78,7 +78,6 @@ const DB = (() => {
         }, err => console.error("Sync error for", col, err));
       });
 
-      // تحديث واجهة الإعدادات والأسعار فوراً عند جلبها من السحابة
       firestore.collection('settings').doc('main').onSnapshot(doc => {
         if (doc.exists) {
           localStorage.setItem(PREFIX + KEYS.settings, JSON.stringify(doc.data()));
@@ -113,7 +112,6 @@ const DB = (() => {
     }
   }
 
-  // دالة حفظ التغييرات في السحابة (بدون تنبيهات)
   async function cloudSync(col, docId, data) {
     if (!firestore) {
       console.error("خطأ فادح: متغير firestore فارغ! الكود لم يكمل التهيئة بعد."); 
@@ -424,10 +422,9 @@ const DB = (() => {
   function deleteMyAccount() {
     const c = currentClient();
     if (!c) return false;
-    if (Number(c.num) === 770712071) {
-      alert('⛔ لا يمكن للمدير الرئيسي حذف حسابه!');
-      return false;
-    }
+    
+    // (تم إزالة الحماية للسماح للمدير بالحذف)
+    
     deleteClient(c.num);
     clearSession();
     return true;
