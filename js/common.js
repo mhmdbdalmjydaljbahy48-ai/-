@@ -368,9 +368,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
    // ✅ تحديث الواجهة تلقائياً عند تغيير الأسعار من الإدارة
 window.addEventListener('ft-db-change', (e) => {
-  if (e.detail.key === DB.KEYS.settings || e.detail.key === DB.KEYS.rates) {
+  // تحديث أسعار الاشتراكات فوراً
+  if (e.detail.key === 'settings' || e.detail.key === 'rates') {
     if (typeof SubPage !== 'undefined' && SubPage.render) SubPage.render();
     if (typeof Shop !== 'undefined' && Shop.updateCalcRates) Shop.updateCalcRates();
+  }
+  // عرض الإشعارات الجديدة فوراً (إذا كان المستخدم في لوحة التحكم)
+  if (e.detail.key === 'notifications') {
+    if (typeof UI !== 'undefined' && UI.showPendingNotifications) {
+       UI.showPendingNotifications();
+    }
   }
 });
 });
