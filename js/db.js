@@ -67,11 +67,12 @@ const DB = (() => {
       
       collectionsToSync.forEach(col => {
         let query = firestore.collection(col);
-        if (firebase.auth().currentUser.email !== 'mhmdbdalmjydaljbahy48@gmail.com') {
-           if (col !== 'pending_clients' && col !== 'settings' && col !== 'rates' && col !== 'notifications') {
-               query = query.where('userId', '==', uid);
-           }
+        const userEmail = firebase.auth().currentUser ? firebase.auth().currentUser.email : '';
+        if (userEmail !== 'mhmdbdalmjydaljbahy48@gmail.com') {
+        if (col !== 'pending_clients' && col !== 'settings' && col !== 'rates' && col !== 'notifications') {
+            query = query.where('userId', '==', uid);
         }
+            }
         
         query.onSnapshot(snapshot => {
           const data = [];
