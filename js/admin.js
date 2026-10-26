@@ -284,15 +284,17 @@ const Admin = {
   resetUser(num) {
     UI.confirm({ title: 'تصفير البيانات', message: 'حذف كل بيانات المتجر والديون والشخصية مع بقاء الحساب؟', danger: true, onConfirm: () => {
       DB.purgeClientData(num);
-      DB.logAudit('ADMIN_RESET_DATA', num);
+      // تم التعديل: تسجيل العملية بـ null حتى لا تعيد إنشاء بيانات للعميل بعد تصفيرها
+      DB.logAudit('ADMIN_RESET_DATA', null, `تم تصفير بيانات العميل: ${num}`); 
       UI.toast('✅ تم التصفير', 'success'); this.render();
     }});
   },
 
   deleteUser(num) {
     UI.confirm({ title: 'حذف نهائي', message: 'سيتم حذف الحساب وكل بياناته!', danger: true, onConfirm: () => {
+      // تم التعديل: تسجيل العملية بـ null حتى لا تعيد إنشاء بيانات للعميل المحذوف
+      DB.logAudit('ADMIN_DELETE', null, `تم حذف العميل: ${num}`);
       DB.deleteClient(num);
-      DB.logAudit('ADMIN_DELETE', num);
       UI.toast('✅ تم الحذف', 'success'); this.render();
     }});
   },
