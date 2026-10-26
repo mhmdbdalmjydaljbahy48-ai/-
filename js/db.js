@@ -78,7 +78,6 @@ const DB = (() => {
         }, err => console.error("Sync error for", col, err));
       });
 
-      // تحديث واجهة الإعدادات والأسعار فوراً عند جلبها من السحابة
       firestore.collection('settings').doc('main').onSnapshot(doc => {
         if (doc.exists) {
           localStorage.setItem(PREFIX + KEYS.settings, JSON.stringify(doc.data()));
@@ -113,7 +112,6 @@ const DB = (() => {
     }
   }
 
-  // دالة حفظ التغييرات في السحابة (بدون تنبيهات)
   async function cloudSync(col, docId, data) {
     if (!firestore) {
       console.error("خطأ فادح: متغير firestore فارغ! الكود لم يكمل التهيئة بعد."); 
@@ -396,29 +394,25 @@ const DB = (() => {
   }
 
   function deleteClient(num) {
-    if (!confirm('⚠️ هل أنت متأكد من حذف هذا الحساب وجميع بياناته (المنتجات، المبيعات، الديون، إلخ) نهائياً؟ لا يمكن التراجع عن هذا الإجراء!')) return;
-    
     set(KEYS.clients, getAllClients().filter(c => Number(c.num) !== Number(num)));
     removeAdmin(num);
     cloudSync('clients', num, null);
     purgeClientData(num);
-    
-    alert('🗑️ تم حذف الحساب وجميع بياناته من السحابة والمتصفح بنجاح.');
   }
 
   function purgeClientData(num) {
     const tables = [
-      'products', // تمت الإضافة
+      'products',
       'shop_customers','shop_debts','cash_sales','network_sales','imports',
       'personal_expenses','personal_income','personal_debts','personal_debt_payments',
       'personal_notes','personal_goals','personal_obligations','sub_requests',
       'debt_archive','notifications','payment_proofs',
-      'audit_log' // تمت الإضافة
+      'audit_log'
     ];
     tables.forEach(k => {
       const toDelete = get(k, []).filter(r => Number(r.client_num) === Number(num));
       toDelete.forEach(r => {
-         const id = r.product_id || r.debt_id || r.sale_id || r.import_id || r.expense_id || r.income_id || r.pdebt_id || r.payment_id || r.note_id || r.goal_id || r.obligation_id || r.req_id || r.id || r.log_id; // تمت إضافة log_id
+         const id = r.product_id || r.debt_id || r.sale_id || r.import_id || r.expense_id || r.income_id || r.pdebt_id || r.payment_id || r.note_id || r.goal_id || r.obligation_id || r.req_id || r.id || r.log_id;
          if (id) cloudSync(k, id, null);
       });
       set(k, get(k, []).filter(r => Number(r.client_num) !== Number(num)));
@@ -438,7 +432,6 @@ const DB = (() => {
   async function login(num, password) {
     let c = findClient(num);
     
-    // 🚀 التعديل الجديد: إذا لم يجد الحساب في المتصفح، ابحث عنه في السحابة
     if (!c && firestore) {
       try {
         const doc = await firestore.collection('clients').doc(String(num)).get();
@@ -629,11 +622,11 @@ const DB = (() => {
       if (existing) throw new Error(`الباركود [${barcode}] مستخدم للمنتج: ${existing.product_name}`);
     }
     
-    const sess = currentSession(); // تمت الإضافة لربط المنتج بالعميل
+    const sess = currentSession(); 
     const p = { product_id: generateId(), product_name, price, selling_price, purchase_price,
       quantity, units_per_carton, barcode: barcode || null, is_active: 1, created_at: now() };
       
-    if (sess) p.client_num = sess.clientNum; // تمت الإضافة لربط المنتج بالعميل
+    if (sess) p.client_num = sess.clientNum; 
 
     products.push(p); set(KEYS.products, products); 
     cloudSync('products', p.product_id, p);
