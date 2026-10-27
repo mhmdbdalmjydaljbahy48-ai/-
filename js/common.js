@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — المكونات المشتركة — النسخة النهائية (v5)
+   ✨️ FT — المكونات المشتركة — النسخة النهائية (v5) - الإشعارات الملونة
    ═══════════════════════════════════════════════════════════ */
 
 const UI = {
@@ -64,41 +64,40 @@ const UI = {
     });
   },
 
-  // ✅ التعديل: نافذة تأكيد حذف الحساب (تطلب من المستخدم إرسال الطلب للإدارة)
   confirmDeleteAccount() {
-  const client = DB.currentClient();
-  if (!client) return;
-  if (DB.isAdmin(client.num)) return this.toast('لا يمكن للمدير حذف حسابه من هنا', 'error');
-  
-  this.modal({
-    title: '⚠️ حذف الحساب نهائياً',
-    content: `<div style="text-align:center;padding:10px 0">
-                <div style="font-size:3rem;margin-bottom:15px;color:var(--danger)">🗑️</div>
-                <p class="mb-3" style="font-size:1.1rem;font-weight:700">هل أنت متأكد من رغبتك في حذف حسابك؟</p>
-                <div class="card mb-3" style="background:rgba(239,68,68,0.1);border-color:var(--danger);text-align:right">
-                  <p style="margin:0;color:var(--danger);font-weight:700">⚠️ تحذير هام:</p>
-                  <ul style="margin:10px 0;padding-right:20px;color:var(--text-2);font-size:.9rem">
-                    <li>سيتم إيقاف حسابك فوراً ولن تتمكن من الدخول.</li>
-                    <li>سيتم إرسال طلب للإدارة لحذف جميع بياناتك (مبيعات، ديون، منتجات).</li>
-                    <li>إذا قمت بتسجيل حساب جديد، سيتم مراجعته من قبل الإدارة.</li>
-                  </ul>
+    const client = DB.currentClient();
+    if (!client) return;
+    if (DB.isAdmin(client.num)) return this.toast('لا يمكن للمدير حذف حسابه من هنا', 'error');
+    
+    this.modal({
+      title: '⚠️ حذف الحساب نهائياً',
+      content: `<div style="text-align:center;padding:10px 0">
+                  <div style="font-size:3rem;margin-bottom:15px;color:var(--danger)">🗑️</div>
+                  <p class="mb-3" style="font-size:1.1rem;font-weight:700">هل أنت متأكد من رغبتك في حذف حسابك؟</p>
+                  <div class="card mb-3" style="background:rgba(239,68,68,0.1);border-color:var(--danger);text-align:right">
+                    <p style="margin:0;color:var(--danger);font-weight:700">⚠️ تحذير هام:</p>
+                    <ul style="margin:10px 0;padding-right:20px;color:var(--text-2);font-size:.9rem">
+                      <li>سيتم إيقاف حسابك فوراً ولن تتمكن من الدخول.</li>
+                      <li>سيتم إرسال طلب للإدارة لحذف جميع بياناتك (مبيعات، ديون، منتجات).</li>
+                      <li>إذا قمت بتسجيل حساب جديد، سيتم مراجعته من قبل الإدارة.</li>
+                    </ul>
+                  </div>
                 </div>
-              </div>
-              <div class="flex gap-2 mt-4">
-                <button class="btn btn-danger" style="flex:1" data-del>نعم، أرسل طلب الحذف</button>
-                <button class="btn btn-ghost" style="flex:1" data-close>إلغاء</button>
-              </div>`,
-    onOpen: (el, close) => {
-      el.querySelector('[data-del]').onclick = () => {
-        DB.requestAccountDeletion(client.num);
-        DB.clearSession();
-        localStorage.removeItem('ft_has_account'); // ✅ هذا هو السطر السحري
-        this.toast('تم إرسال طلب الحذف للإدارة. سيتم تسجيل خروجك.', 'success');
-        setTimeout(() => location.href = 'index.html', 1500);
-      };
-    }
-  });
-},
+                <div class="flex gap-2 mt-4">
+                  <button class="btn btn-danger" style="flex:1" data-del>نعم، أرسل طلب الحذف</button>
+                  <button class="btn btn-ghost" style="flex:1" data-close>إلغاء</button>
+                </div>`,
+      onOpen: (el, close) => {
+        el.querySelector('[data-del]').onclick = () => {
+          DB.requestAccountDeletion(client.num);
+          DB.clearSession();
+          localStorage.removeItem('ft_has_account');
+          this.toast('تم إرسال طلب الحذف للإدارة. سيتم تسجيل خروجك.', 'success');
+          setTimeout(() => location.href = 'index.html', 1500);
+        };
+      }
+    });
+  },
 
   initTheme() {
     const saved = localStorage.getItem('ft-theme') || 'dark';
@@ -209,7 +208,6 @@ const UI = {
       if (href && href === page) link.classList.add('active');
     });
 
-    // ✅ حقن زر حذف الحساب في القائمة الجانبية
     const footer = sidebar.querySelector('.sidebar-footer');
     if (footer && !footer.querySelector('.btn-delete-account')) {
        const btn = document.createElement('button');
@@ -222,7 +220,6 @@ const UI = {
        btn.onclick = () => UI.confirmDeleteAccount();
        footer.appendChild(btn);
        
-       // إخفاء الزر إذا كان المستخدم مديراً
        const c = DB.currentClient();
        if (c && DB.isAdmin(c.num)) btn.style.display = 'none';
     }
@@ -334,21 +331,33 @@ const UI = {
     });
   },
 
+  // ✅ تم تعديل هذه الدالة لعرض الإشعارات بألوان (أخضر، أصفر، أحمر)
   showPendingNotifications() {
     const client = DB.currentClient();
     if (!client) return;
     const list = DB.getNotifications(client.num).filter(n => !n.read);
     if (!list.length) return;
-    const content = list.slice(0, 5).map(n => `
-      <div class="card mb-2" style="background:var(--bg-3);border:1px solid var(--border-2);padding:12px">
-        <h4 style="color:var(--amber);margin:0 0 6px">${this.esc(n.title)}</h4>
-        <p style="margin:0;font-size:.9rem">${this.esc(n.body)}</p>
+    
+    const content = list.slice(0, 5).map(n => {
+      let borderColor = 'var(--border-2)';
+      let titleColor = 'var(--amber)';
+      
+      if (n.type === 'red') { borderColor = 'var(--danger)'; titleColor = 'var(--danger)'; }
+      else if (n.type === 'yellow') { borderColor = 'var(--amber)'; titleColor = 'var(--amber)'; }
+      else if (n.type === 'green') { borderColor = 'var(--success)'; titleColor = 'var(--success)'; }
+
+      return `
+      <div class="card mb-2" style="background:var(--bg-3);border-right: 4px solid ${borderColor};padding:12px">
+        <h4 style="color:${titleColor};margin:0 0 6px; font-size: 1rem;">${this.esc(n.title)}</h4>
+        <p style="margin:0;font-size:.9rem; white-space: pre-wrap;">${this.esc(n.body)}</p>
         <small class="text-muted">${this.fmtDateTime(n.created_at)}</small>
-      </div>`).join('');
+      </div>`;
+    }).join('');
+
     setTimeout(() => {
       this.modal({
-        title: '🔔 لديك إشعارات',
-        content: content + `<button class="btn btn-primary btn-block mt-3" onclick="DB.markAllNotificationsRead(${client.num}); document.getElementById('ft-modal').remove();">تم</button>`,
+        title: '🔔 لديك إشعارات جديدة',
+        content: content + `<button class="btn btn-primary btn-block mt-3" onclick="DB.markAllNotificationsRead(${client.num}); document.getElementById('ft-modal').remove();">تم القراءة</button>`,
       });
     }, 1200);
   },
@@ -365,10 +374,10 @@ document.addEventListener('DOMContentLoaded', () => {
   UI.initReveal();
   UI.applyConfig();
   UI.fixIcons();
+});
 
-   // ✅ تحديث الواجهة تلقائياً عند تغيير الأسعار من الإدارة
+// ✅ تحديث الواجهة تلقائياً عند تغيير الأسعار من الإدارة
 window.addEventListener('ft-db-change', (e) => {
-  // تحديث أسعار الاشتراكات فوراً
   if (e.detail.key === 'settings' || e.detail.key === 'rates') {
     if (typeof SubPage !== 'undefined' && SubPage.render) SubPage.render();
     if (typeof Shop !== 'undefined' && Shop.updateCalcRates) Shop.updateCalcRates();
@@ -379,7 +388,6 @@ window.addEventListener('ft-db-change', (e) => {
        UI.showPendingNotifications();
     }
   }
-});
 });
 
 window.UI = UI;
