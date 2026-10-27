@@ -591,7 +591,7 @@ const DB = (() => {
     set(KEYS.subRequests, reqs);
     cloudSync('sub_requests', reqId, reqs[idx]);
     addNotification(r.client_num, '✅ تم تفعيل اشتراكك',
-      `تم تفعيل اشتراكك لمدة ${durationLabel(r.months)}. ينتهي في ${new Date(addMonths(newStart, newMonths)).toLocaleDateString('ar-EG')}.`);
+      `تم تفعيل اشتراكك لمدة ${durationLabel(r.months)}. ينتهي في ${new Date(addMonths(newStart, newMonths)).toLocaleDateString('ar-EG')}.`, 'green');
     logAudit('SUB_APPROVED', r.client_num, `req=${reqId}`);
     return r;
   }
@@ -605,7 +605,7 @@ const DB = (() => {
     set(KEYS.subRequests, reqs);
     cloudSync('sub_requests', reqId, reqs[idx]);
     addNotification(reqs[idx].client_num, '❌ تم رفض طلب التجديد',
-      `طلب التجديد #${reqId} لم يُقبل. للاستفسار تواصل مع الإدارة.`);
+      `طلب التجديد #${reqId} لم يُقبل. للاستفسار تواصل مع الإدارة.`, 'red');
     return reqs[idx];
   }
   function cancelSubRequest(reqId, clientNum) {
@@ -957,10 +957,10 @@ const DB = (() => {
     return top ? { category: top, total: max } : null;
   }
 
-  function addNotification(clientNum, title, body) {
+  function addNotification(clientNum, title, body, type = 'green') {
     const arr = get(KEYS.notifications, []);
     const id = generateId();
-    const row = { id, client_num: Number(clientNum), title, body, read: 0, created_at: now() };
+    const row = { id, client_num: Number(clientNum), title, body, type, read: 0, created_at: now() };
     arr.unshift(row); set(KEYS.notifications, arr);
     cloudSync('notifications', id, row);
   }
