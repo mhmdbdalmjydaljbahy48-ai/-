@@ -63,7 +63,6 @@ const Admin = {
   },
 
   renderPending() {
-    // 1. طلبات التسجيل الجديدة
     const pClients = DB.getPendingClients();
     document.getElementById('pendingClientsList').innerHTML = pClients.length ? pClients.map(c => `
       <div class="flex-between mb-2" style="padding:10px;border-bottom:1px solid var(--border-2)">
@@ -77,7 +76,6 @@ const Admin = {
         </div>
       </div>`).join('') : '<p class="text-muted">لا طلبات تسجيل حالياً</p>';
 
-    // 2. طلبات حذف الحسابات
     const dRequests = DB.getDeletionRequests();
     document.getElementById('deletionRequestsList').innerHTML = dRequests.length ? dRequests.map(c => `
       <div class="flex-between mb-2" style="padding:10px;border-bottom:1px solid var(--border-2); background: rgba(239,68,68,0.05)">
@@ -91,7 +89,6 @@ const Admin = {
         </div>
       </div>`).join('') : '<p class="text-muted">لا طلبات حذف حالياً</p>';
 
-    // 3. طلبات التجديد
     const reqs = DB.pendingSubRequests();
     document.getElementById('pendingList').innerHTML = reqs.length ? reqs.map(r => {
       const c = DB.findClient(r.client_num);
@@ -206,6 +203,10 @@ const Admin = {
           <button class="btn btn-outline" data-act="edit">✏️ تعديل</button>
           <button class="btn btn-outline" data-act="toggle">${st.blocked ? '✅ تفعيل' : '⛔ إيقاف'}</button>
           <button class="btn btn-outline" data-act="expire">🚫 تصفير اشتراك</button>
+          
+          <!-- ✅ زر التواصل الأزرق هنا -->
+          <button class="btn btn-outline" data-act="contact" style="grid-column:span 2; border-color: #3B82F6; color: #3B82F6;">📞 التواصل مع العميل</button>
+
           <button class="btn btn-danger" data-act="reset" style="grid-column:span 2">🔄 تصفير البيانات</button>
           <button class="btn btn-danger" data-act="delete" style="grid-column:span 2">🗑 حذف نهائي</button>
         </div>`,
@@ -218,6 +219,7 @@ const Admin = {
             else if (act === 'edit') this.editUser(num);
             else if (act === 'toggle') this.toggleUser(num);
             else if (act === 'expire') this.expireUser(num);
+            else if (act === 'contact') this.contactClient(num);
             else if (act === 'reset') this.resetUser(num);
             else if (act === 'delete') this.deleteUser(num);
           };
@@ -249,9 +251,52 @@ const Admin = {
           try {
             DB.grantSubscription(num, { [unit]: v, amount: amt, resetMonthsIfExpired: false });
             DB.logAudit('ADMIN_EXTEND', num, `+${v} ${unit} paid=${amt}`);
-            DB.addNotification(num, '✅ تمديد اشتراك', `تم تمديد اشتراكك بمقدار ${v} ${unit}.`);
+            DB.addNotification(num, '✅ تمديد اشتراك', `تم تمديد اشتراكك بمقدار ${v} ${unit}.`, 'green');
             UI.toast('✅ تم التمديد', 'success'); close(); this.render();
           } catch(e) { UI.toast(e.message, 'error'); }
+        };
+      }
+    });
+  },
+
+  // ✅ الدالة الجديدة للتواصل مع العميل
+  contactClient(num) {
+    const c = DB.findClient(num);
+    if (!c) return;
+
+    UI.modal({
+      title: `📞 التواصل مع ${UI.esc(c.name)}`,
+      content: `
+        <div class="form-group">
+          <label class="form-label">نوع الإشعار</label>
+          <select class="form-select" id="notifType" style="font-weight:bold; padding:10px;">
+            <option value="green" style="color:var(--success)">🟢 أخضر: تنبيه ليس مهم</option>
+            <option value="yellow" style="color:var(--amber)">🟡 أصفر: تنبيه لازم قراءته (يمكن يكون مهم)</option>
+            <option value="red" style="color:var(--danger)">🔴 أحمر: تنبيه مهم جداً (يجب عليك قراءته)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">تفاصيل إضافية (اختياري)</label>
+          <textarea class="form-textarea" id="notifMessage" rows="3" placeholder="اكتب رسالتك هنا... سيتم إرسال عنوان 'إشعار من الإدارة' مع النص المختار."></textarea>
+        </div>
+        <button class="btn btn-primary btn-block" id="btnSendNotif" style="background:#3B82F6; border-color:#3B82F6;">إرسال الإشعار</button>`,
+      onOpen: (el, close) => {
+        el.querySelector('#btnSendNotif').onclick = () => {
+          const type = el.querySelector('#notifType').value;
+          const customMsg = el.querySelector('#notifMessage').value.trim();
+          
+          let typeText = '';
+          if (type === 'green') typeText = 'تنبيه ليس مهم';
+          else if (type === 'yellow') typeText = 'تنبيه لازم قراءته يمكن يكون مهم';
+          else if (type === 'red') typeText = 'تنبيه مهم جدا يجب عليك قراءته';
+
+          let fullBody = typeText;
+          if (customMsg) fullBody += `\n\n${customMsg}`;
+
+          DB.addNotification(num, 'إشعار من الإدارة', fullBody, type);
+          
+          UI.toast('✅ تم إرسال الإشعار للعميل', 'success');
+          close();
         };
       }
     });
@@ -313,9 +358,9 @@ const Admin = {
     DB.updateClient(num, { is_active: st.blocked ? 1 : 0 });
     DB.logAudit('ADMIN_TOGGLE', num, st.blocked ? 'enabled' : 'disabled');
     if (st.blocked) {
-      DB.addNotification(num, '✅ تم تفعيل حسابك', 'حسابك أصبح نشطاً مرة أخرى.');
+      DB.addNotification(num, '✅ تم تفعيل حسابك', 'حسابك أصبح نشطاً مرة أخرى.', 'green');
     } else {
-      DB.addNotification(num, '⛔ تم إيقاف حسابك', 'تواصل مع الإدارة للاستفسار.');
+      DB.addNotification(num, '⛔ تم إيقاف حسابك', 'تواصل مع الإدارة للاستفسار.', 'red');
     }
     UI.toast(st.blocked ? '✅ تم التفعيل' : '⛔ تم الإيقاف', 'success');
     this.render();
@@ -359,7 +404,6 @@ const Admin = {
       onOpen: (el, close) => {
         el.querySelector('#btnAddU').onclick = async () => {
           try {
-            // هنا ننشئ الحساب مباشرة كمدير (لا يحتاج موافقة)
             const c = await DB.createClient({
               num: Number(el.querySelector('#uNum').value),
               name: el.querySelector('#uName').value,
@@ -367,7 +411,6 @@ const Admin = {
               password: el.querySelector('#uPass').value,
               months: Number(el.querySelector('#uMonths').value),
             });
-            // إزالة حالة الانتظار (لأن المدير أنشأه)
             DB.approvePendingClient(c.num); 
             
             if (el.querySelector('#uAdmin').checked) DB.addAdmin(c.num);
@@ -385,7 +428,7 @@ const Admin = {
     if (!title || !body) return UI.toast('أدخل العنوان والنص', 'error');
     const clients = DB.getAllClients();
     let sent = 0;
-    clients.forEach(c => { DB.addNotification(c.num, title, body); sent++; });
+    clients.forEach(c => { DB.addNotification(c.num, title, body, 'green'); sent++; });
     DB.logAudit('ADMIN_BROADCAST', null, `to=${sent} users`);
     UI.toast(`✅ أُرسلت لـ ${sent} حساب`, 'success');
     document.getElementById('broadcastTitle').value = '';
