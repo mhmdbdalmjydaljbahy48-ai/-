@@ -133,8 +133,9 @@ const DB = (() => {
         }
         await firestore.collection(col).doc(String(docId)).set(dataToSave, { merge: true });
       }
-    } catch (e) { 
-      console.error("Cloud sync error:", e); 
+    } catch (e) {
+  alert("❌ فشل الحفظ في السحابة! السبب: " + e.message);
+  console.error("Cloud sync error:", e);
     }
   }
 
