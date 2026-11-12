@@ -149,6 +149,51 @@ if (micBtn) micBtn.onclick = () => this.startVoiceInput();
     }
   },
 
+
+  // 🎙️ دالة الاستماع (تحويل الصوت إلى نص)
+startVoiceInput() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    return UI.toast('متصفحك لا يدعم الإدخال الصوتي (استخدم Google Chrome).', 'error');
+  }
+  
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'ar-SA'; // اللغة العربية
+  recognition.interimResults = false; // الانتظار حتى الانتهاء من الكلام
+  
+  recognition.onstart = () => {
+    UI.toast('🎤 جاري الاستماع... تحدث الآن', 'info');
+    document.getElementById('chatMic').style.background = '#dc3545'; // تحويل الزر للأحمر
+  };
+  
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    // ✅ وضع النص في مربع الإدخال ليقوم المستخدم بمراجعته
+    document.getElementById('chatInput').value = transcript;
+    // لا نقوم بالإرسال التلقائي، المستخدم هو من يضغط إرسال
+  };
+
+  recognition.onend = () => {
+    document.getElementById('chatMic').style.background = '#10B981'; // إرجاع اللون الأخضر
+  };
+
+  recognition.start();
+},
+
+// 🔊 دالة النطق (تحويل نص البوت إلى صوت)
+speakText(text) {
+  if ('speechSynthesis' in window) {
+    // إيقاف أي صوت سابق قبل تشغيل الصوت الجديد
+    window.speechSynthesis.cancel(); 
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ar-SA'; // نطق باللغة العربية
+    utterance.rate = 1; // سرعة النطق (1 هو الطبيعي)
+    window.speechSynthesis.speak(utterance);
+  }
+},
+
+  
   async sendMessage() {
     const input = document.getElementById('chatInput');
     const messages = document.getElementById('chatMessages');
