@@ -202,6 +202,18 @@ const UI = {
       };
     }
     backdrop.onclick = () => { sidebar.classList.remove('open'); backdrop.classList.remove('active'); };
+     // ✅ إضافة رابط المحلل الذكي تلقائياً
+const nav = sidebar.querySelector('.sidebar-nav');
+if (nav && !nav.querySelector('a[href="ai-assistant.html"]')) {
+   const aiLink = document.createElement('a');
+   aiLink.href = 'ai-assistant.html';
+   aiLink.className = 'nav-link';
+   aiLink.innerHTML = '<i data-lucide="bot"></i> المحلل الذكي';
+   // ضعه قبل صفحة الاشتراك
+   const subLink = nav.querySelector('a[href="subscription.html"]');
+   if (subLink) nav.insertBefore(aiLink, subLink);
+   else nav.appendChild(aiLink);
+}
     const page = location.pathname.split('/').pop() || 'index.html';
     sidebar.querySelectorAll('.nav-link').forEach(link => {
       const href = link.getAttribute('href');
