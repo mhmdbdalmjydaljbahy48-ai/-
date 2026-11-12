@@ -244,6 +244,108 @@
 
   <a href="register.html" class="floating-cta"><i data-lucide="rocket" style="width:18px;height:18px"></i> ابدأ مجاناً</a>
 
+
+
+
+
+
+
+
+
+
+  <!-- 🤖 مساعد الذكاء الاصطناعي العائم -->
+<style>
+  .ai-chat-btn { position: fixed; bottom: 24px; right: 24px; z-index: 9999; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, var(--amber), var(--amber-dark)); color: #000; display: grid; place-items: center; box-shadow: 0 8px 24px var(--amber-glow); cursor: pointer; transition: transform 0.3s; }
+  .ai-chat-btn:hover { transform: scale(1.1); }
+  .ai-chat-window { position: fixed; bottom: 100px; right: 24px; z-index: 9999; width: 350px; max-width: calc(100vw - 48px); height: 500px; max-height: calc(100vh - 150px); background: var(--bg-2); border: 1px solid var(--amber); border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: none; flex-direction: column; overflow: hidden; }
+  .ai-chat-header { background: var(--bg-3); padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .ai-chat-header h4 { margin: 0; color: var(--amber); font-size: 1.1rem; }
+  .ai-chat-close { cursor: pointer; color: var(--text-2); background: none; border: none; font-size: 1.2rem; }
+  .ai-chat-messages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+  .ai-msg { padding: 10px 14px; border-radius: 12px; max-width: 80%; font-size: 0.95rem; line-height: 1.5; }
+  .ai-msg.user { background: var(--amber); color: #000; align-self: flex-end; border-bottom-left-radius: 4px; }
+  .ai-msg.model { background: var(--bg-3); color: var(--text); align-self: flex-start; border-bottom-right-radius: 4px; border: 1px solid var(--border-2); }
+  .ai-chat-input-box { padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: var(--bg-2); }
+  .ai-chat-input-box input { flex: 1; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--border-2); background: var(--bg-3); color: var(--text); }
+  .ai-chat-input-box input:focus { outline: none; border-color: var(--amber); }
+  .ai-chat-input-box button { width: 40px; height: 40px; border-radius: 50%; background: var(--amber); border: none; cursor: pointer; color: #000; display: grid; place-items: center; }
+</style>
+
+<button class="ai-chat-btn" id="aiChatBtn" title="مساعد FT الذكي"><i data-lucide="bot" style="width:28px; height:28px;"></i></button>
+<div class="ai-chat-window" id="aiChatWindow">
+  <div class="ai-chat-header">
+    <h4>🤖 مساعد FT</h4>
+    <button class="ai-chat-close" id="aiChatClose"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+  </div>
+  <div class="ai-chat-messages" id="aiChatMessages">
+    <div class="ai-msg model">مرحباً بك في نظام FT! كيف يمكنني مساعدتك اليوم؟ يمكنك سؤالي عن الميزات، الأسعار، أو كيفية التسجيل.</div>
+  </div>
+  <div class="ai-chat-input-box">
+    <input type="text" id="aiChatInput" placeholder="اكتب سؤالك هنا..." autocomplete="off">
+    <button id="aiChatSend"><i data-lucide="send" style="width:18px;height:18px;"></i></button>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('aiChatBtn');
+    const win = document.getElementById('aiChatWindow');
+    const close = document.getElementById('aiChatClose');
+    const input = document.getElementById('aiChatInput');
+    const sendBtn = document.getElementById('aiChatSend');
+    const messages = document.getElementById('aiChatMessages');
+    let chatHistory = [];
+    let isTyping = false;
+    btn.onclick = () => { win.style.display = 'flex'; btn.style.display = 'none'; input.focus(); };
+    close.onclick = () => { win.style.display = 'none'; btn.style.display = 'grid'; };
+    async function sendMessage() {
+      const text = input.value.trim();
+      if (!text || isTyping) return;
+      input.value = '';
+      messages.innerHTML += `<div class="ai-msg user">${text}</div>`;
+      messages.scrollTop = messages.scrollHeight;
+      chatHistory.push({ role: 'user', text: text });
+      isTyping = true;
+      const loadingId = 'loading-' + Date.now();
+      messages.innerHTML += `<div class="ai-msg model" id="${loadingId}">جاري التفكير... ⏳</div>`;
+      messages.scrollTop = messages.scrollHeight;
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, history: chatHistory.slice(0, -1) })
+        });
+        const data = await res.json();
+        document.getElementById(loadingId).remove();
+        if (data.reply) {
+          messages.innerHTML += `<div class="ai-msg model">${data.reply}</div>`;
+          chatHistory.push({ role: 'model', text: data.reply });
+        } else {
+          messages.innerHTML += `<div class="ai-msg model" style="color:var(--danger)">عذراً، حدث خطأ. حاول مرة أخرى.</div>`;
+        }
+      } catch (e) {
+        document.getElementById(loadingId).remove();
+        messages.innerHTML += `<div class="ai-msg model" style="color:var(--danger)">تعذر الاتصال بالخادم.</div>`;
+      } finally {
+        isTyping = false;
+        messages.scrollTop = messages.scrollHeight;
+        if(window.lucide) lucide.createIcons();
+      }
+    }
+    sendBtn.onclick = sendMessage;
+    input.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
+  });
+        </script>
+
+
+
+
+
+
+
+
+  
+
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/db2.js?v=14"></script>
   <script src="js/common.js"></script>
