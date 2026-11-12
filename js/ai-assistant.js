@@ -204,13 +204,12 @@ startVoiceInput() {
 
 // 🔊 دالة النطق (تحويل نص البوت إلى صوت)
 speakText(text) {
+  if (this.isMuted) return; // ✅ إذا كان مكتوماً، لا تنطق
   if ('speechSynthesis' in window) {
-    // إيقاف أي صوت سابق قبل تشغيل الصوت الجديد
     window.speechSynthesis.cancel(); 
-    
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'ar-SA'; // نطق باللغة العربية
-    utterance.rate = 1; // سرعة النطق (1 هو الطبيعي)
+    utterance.lang = 'ar-SA'; 
+    utterance.rate = 1; 
     window.speechSynthesis.speak(utterance);
   }
 },
