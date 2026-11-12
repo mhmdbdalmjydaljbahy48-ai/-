@@ -82,29 +82,29 @@ const AIAssistant = {
   },
 
   requestAiTrial() {
-    UI.confirm({
-      title: '🎁 تفعيل الشهر المجاني',
-      message: 'هل أنت متأكد من رغبتك في تفعيل الشهر التجريبي المجاني للمحلل الذكي؟ (لا يمكن استخدامه إلا مرة واحدة فقط).',
-      danger: false,
-      onConfirm: () => {
-        const success = DB.requestAiTrial(this.client.num);
-        if (success) {
-          UI.modal({
-            title: '🎉 مبروك!',
-            content: `<div style="text-align:center;padding:20px">
-                        <div style="font-size:4rem;margin-bottom:15px">🎁</div>
-                        <h2 style="color:#3B82F6;margin-bottom:10px">تم تفعيل الشهر المجاني!</h2>
-                        <p class="text-muted">لقد حصلت على شهر كامل لاستخدام المحلل الذكي مجاناً. ابدأ الآن بتحليل بيانات متجرك!</p>
-                        <button class="btn btn-primary btn-block mt-4" onclick="location.reload()" style="background:#3B82F6">ابدأ الآن</button>
-                      </div>`,
-            onOpen: (el) => el.querySelector('[data-close]').style.display = 'none'
-          });
-        } else {
-          UI.toast('حدث خطأ، ربما استخدمت التجربة من قبل.', 'error');
-        }
+  UI.confirm({
+    title: '🎁 تفعيل الشهر المجاني',
+    message: 'هل أنت متأكد من رغبتك في تفعيل الشهر التجريبي المجاني للمحلل الذكي؟ (لا يمكن استخدامه إلا مرة واحدة فقط).',
+    danger: false,
+    onConfirm: async () => { // 👈 أضفنا async هنا
+      const success = await DB.requestAiTrial(this.client.num); // 👈 أضفنا await هنا
+      if (success) {
+        UI.modal({
+          title: '🎉 مبروك!',
+          content: `<div style="text-align:center;padding:20px">
+                      <div style="font-size:4rem;margin-bottom:15px">🎁</div>
+                      <h2 style="color:#3B82F6;margin-bottom:10px">تم تفعيل الشهر المجاني!</h2>
+                      <p class="text-muted">لقد حصلت على شهر كامل لاستخدام المحلل الذكي مجاناً. ابدأ الآن بتحليل بيانات متجرك!</p>
+                      <button class="btn btn-primary btn-block mt-4" onclick="location.reload()" style="background:#3B82F6">ابدأ الآن</button>
+                    </div>`,
+          onOpen: (el) => el.querySelector('[data-close]').style.display = 'none'
+        });
+      } else {
+        UI.toast('لقد استخدمت التجربة المجانية مسبقاً من هذا الحساب.', 'error');
       }
-    });
-  },
+    }
+  });
+},
 
   requestAiSub(months) {
     const price = DB.getSettings().ai_month_price || 0;
