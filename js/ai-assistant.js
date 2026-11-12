@@ -7,34 +7,47 @@ const AIAssistant = {
     this.client = UI.requireLogin();
     if (!this.client) return;
     document.getElementById('userAvatar').textContent = this.client.name.charAt(0);
-    document.getElementById('chatSend').onclick = () => this.sendMessage();
     document.getElementById('userName').textContent = this.client.name;
     document.getElementById('userRole').textContent = this.client.account_type || 'مستخدم';
     if (DB.isAdmin(this.client.num) || this.client.is_admin) {
       document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'flex');
     }
 
-    // التحقق من اشتراك البوت
-    const aiSub = DB.getAiSubscriptionStatus(this.client);
-    if (!aiSub.ok && !DB.isAdmin(this.client.num)) {
-      document.getElementById('aiLockScreen').style.display = 'flex';
-      document.getElementById('chatInput').disabled = true;
-      document.getElementById('chatSend').disabled = true;
-      document.getElementById('btnShowAiPlans').onclick = () => this.showAiPlans();
-    } else {
-      document.getElementById('aiLockScreen').style.display = 'none';
-      document.getElementById('chatInput').disabled = false;
-      document.getElementById('chatSend').disabled = false;
-    }
-// ✅ ربط زر إدارة الاشتراك الفضي بالوظيفة
-const manageBtn = document.getElementById('btnManageAiSub');
-if (manageBtn) {
-  manageBtn.onclick = () => this.showAiPlans();
-}
+    // 1. ربط الأزرار الأساسية أولاً (قبل أي فحص اشتراك)
+    const sendBtn = document.getElementById('chatSend');
+    if (sendBtn) sendBtn.onclick = () => this.sendMessage();
     
+    const inputField = document.getElementById('chatInput');
+    if (inputField) inputField.onkeypress = (e) => { if (e.key === 'Enter') this.sendMessage(); };
+
+    const manageBtn = document.getElementById('btnManageAiSub');
+    if (manageBtn) manageBtn.onclick = () => this.showAiPlans();
+
+    // 2. التحقق من اشتراك البوت
+    try {
+      const aiSub = DB.getAiSubscriptionStatus(this.client);
+      if (!aiSub.ok && !DB.isAdmin(this.client.num)) {
+        const lockScreen = document.getElementById('aiLockScreen');
+        if (lockScreen) lockScreen.style.display = 'flex';
+        
+        if (inputField) inputField.disabled = true;
+        if (sendBtn) sendBtn.disabled = true;
+        
+        const showPlansBtn = document.getElementById('btnShowAiPlans');
+        if (showPlansBtn) showPlansBtn.onclick = () => this.showAiPlans();
+      } else {
+        const lockScreen = document.getElementById('aiLockScreen');
+        if (lockScreen) lockScreen.style.display = 'none';
+        
+        if (inputField) inputField.disabled = false;
+        if (sendBtn) sendBtn.disabled = false;
+      }
+    } catch (e) {
+      console.error("Error checking AI subscription:", e);
+    }
+  },
 
   showAiPlans() {
-    // تحديث حالة العميل من قاعدة البيانات لضمان دقة البيانات
     this.client = DB.findClient(this.client.num);
     const price = DB.getSettings().ai_month_price || 0; 
     const trialUsed = this.client.ai_trial_used;
@@ -49,7 +62,6 @@ if (manageBtn) {
     }
     html += `</div>`;
 
-    // إظهار زر التجربة فقط إذا لم يستخدمها من قبل
     if (!trialUsed && !DB.isAdmin(this.client.num)) {
        html = `<div style="text-align:center;margin-bottom:20px;padding:15px;background:rgba(16,185,129,0.1);border:1px solid #10B981;border-radius:12px">
           <p style="color:#10B981;font-weight:bold;margin-bottom:10px">🎁 إدارة النظام تمنحك شهراً تجريبياً مجانياً!</p>
@@ -65,9 +77,7 @@ if (manageBtn) {
     UI.modal({
       title: '💎 باقات المحلل الذكي',
       content: html,
-      onOpen: (el) => {
-         el.style.maxWidth = '600px';
-      }
+      onOpen: (el) => { el.style.maxWidth = '600px'; }
     });
   },
 
@@ -117,13 +127,11 @@ if (manageBtn) {
       const bestProd = DB.getBestSellingProduct(cn, 'month');
       const debts = DB.getAllCustomersWithBalances(cn);
       const totalDebts = debts.reduce((s, c) => s + c.remain, 0);
-      
       const expenses = DB.expenses.list(cn).reduce((s, e) => s + Number(e.amount || 0), 0);
       const incomes = DB.incomes.list(cn).reduce((s, i) => s + Number(i.amount || 0), 0);
-      
       const productsCount = DB.getProducts().length;
       
-      let context = `
+      return `
         - مبيعات اليوم (كاش وشبكة): ${analytics.today_cash + analytics.today_network} ريال.
         - ديون اليوم (آجل): ${analytics.today_debt} ريال.
         - مبيعات هذا الشهر (كاش وشبكة): ${analytics.month_cash + analytics.month_network} ريال.
@@ -133,9 +141,7 @@ if (manageBtn) {
         - إجمالي المصاريف الشخصية المسجلة: ${expenses} ريال.
         - إجمالي الدخل الشخصي المسجل: ${incomes} ريال.
       `;
-      return context;
     } catch (e) {
-      console.error("خطأ في استخراج البيانات:", e);
       return "لا توجد بيانات متاحة حالياً.";
     }
   },
@@ -143,6 +149,8 @@ if (manageBtn) {
   async sendMessage() {
     const input = document.getElementById('chatInput');
     const messages = document.getElementById('chatMessages');
+    if (!input || !messages) return;
+
     const text = input.value.trim();
     if (!text || this.isTyping) return;
 
@@ -169,7 +177,8 @@ if (manageBtn) {
         })
       });
       const data = await res.json();
-      document.getElementById(loadId).remove();
+      const loadingEl = document.getElementById(loadId);
+      if (loadingEl) loadingEl.remove();
 
       if (data.reply) {
         messages.innerHTML += `<div class="msg model">${data.reply}</div>`;
@@ -178,7 +187,8 @@ if (manageBtn) {
         messages.innerHTML += `<div class="msg model" style="color:var(--danger)">${data.error || 'حدث خطأ غير معروف'}</div>`;
       }
     } catch (e) {
-      document.getElementById(loadId).remove();
+      const loadingEl = document.getElementById(loadId);
+      if (loadingEl) loadingEl.remove();
       messages.innerHTML += `<div class="msg model" style="color:var(--danger)">تعذر الاتصال بالخادم.</div>`;
     } finally {
       this.isTyping = false;
