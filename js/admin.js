@@ -233,6 +233,7 @@ const Admin = {
           <!-- ✅ أزرار البوت الجديدة -->
           <button class="btn btn-outline" data-act="ai_extend" style="border-color: #3B82F6; color: #3B82F6;">🤖 تمديد بوت</button>
           <button class="btn btn-outline" data-act="ai_reset" style="border-color: #3B82F6; color: #3B82F6;">🚫 تصفير بوت</button>
+          <button class="btn btn-outline" data-act="check" style="grid-column:span 2; border-color: var(--success); color: var(--success)">🔍 فحص اشتراك العميل</button>
 
           <!-- ✅ زر التواصل الأزرق هنا -->
           <button class="btn btn-outline" data-act="contact" style="grid-column:span 2; border-color: #3B82F6; color: #3B82F6;">📞 التواصل مع العميل</button>
