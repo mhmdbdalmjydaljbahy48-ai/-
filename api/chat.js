@@ -2,11 +2,15 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  const { message, history } = req.body;
+  
+  // ✅ الإضافة الوحيدة هنا: استقبال dataContext (وهو فارغ إذا كان الزائر في الصفحة الرئيسية)
+  const { message, history, dataContext } = req.body; 
+  
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'API Key is missing in Vercel settings' });
   }
+  
   const contents = [];
   if (history && history.length > 0) {
     history.forEach(msg => {
@@ -21,27 +25,44 @@ export default async function handler(req, res) {
     parts: [{ text: message }]
   });
 
-  const systemPrompt = `
-    أنت المساعد الذكي لنظام "FT لإدارة الأسواق والديون". 
-    أنت ودود ومحترف.
-    مهمتك الإجابة على استفسارات الزوار في الصفحة الرئيسية قبل تسجيل الدخول.
-    
-    ⚠️ هام جداً بخصوص اللغة: 
-    إذا كتب لك الزائر بلهجة عامية (يمنية، خليجية، مصرية، إلخ)، قم بالرد عليه بنفس لهجته وبطريقة ودودة ومبسطة. 
-    وإذا كتب بالفصحى، أجب بالفصحى.
+  let systemPrompt = "";
 
-    معلومات عن النظام:
-    - نظام متكامل لإدارة المتاجر، المبيعات، الديون، والمخزون.
-    - يحتوي أيضاً على قسم فردي لإدارة المصاريف، الدخل، وأهداف الادخار.
-    - يتيح تسجيل الدخول للعملاء ومتابعة اشتراكاتهم.
-    - الأسعار تختلف حسب الباقة، ويتم الاتصال بالإدارة للتجديد.
-    - إذا سأل الزائر عن كيفية التسجيل، أرشده إلى الذهاب لصفحة "إنشاء حساب" وتعبئة البيانات.
-    - إذا سألك عن سعر الاشتراك، أخبره أن الأسعار تظهر داخل النظام بعد التسجيل، أو تواصل مع الدعم.
-    - لا تفتِ في أمور لا تخص النظام. كن مختصراً ومفيداً.
-  `;
+  // ✅ هنا يقرر الكود أي شخصية سيتقمص:
+  if (dataContext) {
+    // [1] شخصية المحلل الداخلي (إذا كانت هناك بيانات قادمة من لوحة التحكم)
+    systemPrompt = `
+      أنت المساعد الذكي لنظام "FT" داخل لوحة تحكم العميل. 
+      أنت خبير في تحليل البيانات وإدارة المتاجر والديون.
+      تجيب على أسئلة العميل بلهجته وبنفس لغته، وتكون دقيقاً جداً في الأرقام.
+      
+      ⚠️ هام جداً: هذه هي البيانات الحالية الحقيقية للعميل:
+      ${dataContext}
+      
+      بناءً على هذه البيانات، أجب على سؤال العميل بدقة. لا تخترع أرقاماً من عندك.
+    `;
+  } else {
+    // [2] شخصية البوت العام (نفس الكود الخاص بك بالحرف الواحد)
+    systemPrompt = `
+      أنت المساعد الذكي لنظام "FT لإدارة الأسواق والديون". 
+      أنت ودود ومحترف.
+      مهمتك الإجابة على استفسارات الزوار في الصفحة الرئيسية قبل تسجيل الدخول.
+      
+      ⚠️ هام جداً بخصوص اللغة: 
+      إذا كتب لك الزائر بلهجة عامية (يمنية، خليجية، مصرية، إلخ)، قم بالرد عليه بنفس لهجته وبطريقة ودودة ومبسطة. 
+      وإذا كتب بالفصحى، أجب بالفصحى.
+
+      معلومات عن النظام:
+      - نظام متكامل لإدارة المتاجر، المبيعات، الديون، والمخزون.
+      - يحتوي أيضاً على قسم فردي لإدارة المصاريف، الدخل، وأهداف الادخار.
+      - يتيح تسجيل الدخول للعملاء ومتابعة اشتراكاتهم.
+      - الأسعار تختلف حسب الباقة، ويتم الاتصال بالإدارة للتجديد.
+      - إذا سأل الزائر عن كيفية التسجيل، أرشده إلى الذهاب لصفحة "إنشاء حساب" وتعبئة البيانات.
+      - إذا سألك عن سعر الاشتراك، أخبره أن الأسعار تظهر داخل النظام بعد التسجيل، أو تواصل مع الدعم.
+      - لا تفتِ في أمور لا تخص النظام. كن مختصراً ومفيداً.
+    `;
+  }
   
   try {
-    // ✅ تم تحديث اسم النموذج إلى gemini-3.8-flash
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -50,15 +71,20 @@ export default async function handler(req, res) {
         contents: contents
       })
     });
+    
     const data = await response.json();
+    
     if (!response.ok) {
-  if (data.error?.message && data.error.message.includes('high demand')) {
-    throw new Error('عذراً، المساعد الذكي يواجه ضغطاً كبيراً من الزوار حالياً. يرجى المحاولة بعد قليل.');
-  }
-  throw new Error(data.error?.message || 'Error from Gemini API');
+      // ✅ الإضافة الثانية: اصطياد خطأ الضغط من جوجل (لراحة المستخدم)
+      if (data.error?.message && data.error.message.includes('high demand')) {
+        throw new Error('عذراً، المساعد الذكي يواجه ضغطاً كبيراً من الزوار حالياً. يرجى المحاولة بعد قليل.');
+      }
+      throw new Error(data.error?.message || 'Error from Gemini API');
     }
+    
     const aiResponse = data.candidates[0].content.parts[0].text;
     return res.status(200).json({ reply: aiResponse });
+    
   } catch (error) {
     console.error('AI Error:', error);
     return res.status(500).json({ error: 'حدث خطأ: ' + error.message });
