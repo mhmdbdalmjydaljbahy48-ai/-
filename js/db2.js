@@ -1276,7 +1276,7 @@ function resetAiSubscription(num) {
     getTotalCartonsImported, searchProductsByName, getAllCustomersWithBalances,
     getSalesByPeriod, getDebtPaidTotal, getImportsByPeriod, getProfitsByPeriod,
     getBestSellingProduct, getProductMovement, getAdvancedAnalytics,
-    getAiSubscriptionStatus, requestAiTrial, createAiSubRequest, grantAiSubscription, resetAiSubscription,
+    getAiSubscriptionStatus, requestAiTrial, createAiSubRequest, grantAiSubscription, resetAiSubscription,massResetFree,
   };
 })();
 
