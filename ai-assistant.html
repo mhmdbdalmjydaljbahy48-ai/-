@@ -82,6 +82,20 @@
   <main class="main-content">
     <div class="container">
       <div class="chat-container">
+
+        <!-- شاشة القفل (تظهر فقط إذا لم يكن مشتركاً) -->
+<div id="aiLockScreen" style="position:absolute;inset:0;z-index:10;background:rgba(15,23,42,0.95);backdrop-filter:blur(10px);display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;">
+  <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#1D4ED8);display:grid;place-items:center;margin-bottom:20px;box-shadow:0 0 30px rgba(59,130,246,0.6)">
+    <i data-lucide="lock" style="color:#fff;width:40px;height:40px;"></i>
+  </div>
+  <h2 style="color:#fff;font-size:1.8rem;margin-bottom:10px;">المحلل الذكي (ميزة مدفوعة)</h2>
+  <p style="color:#93C5FD;margin-bottom:30px;max-width:400px;">لا يوجد لديك اشتراك في المحلل الذكي حالياً. اشترك الآن للاستمتاع بتحليل مبيعاتك وديونك بالذكاء الاصطناعي.</p>
+  
+  <button id="btnShowAiPlans" class="btn btn-primary" style="background:linear-gradient(135deg,#3B82F6,#1D4ED8);border:none;padding:12px 30px;font-size:1.1rem;box-shadow:0 0 20px rgba(59,130,246,0.5)">
+    💎 عرض باقات الاشتراك والتجربة المجانية
+  </button>
+</div>
+        
         <!-- خلفية الروبوت الكبيرة (شكل جمالي) -->
         <i data-lucide="bot" class="bg-robot-icon"></i>
 
