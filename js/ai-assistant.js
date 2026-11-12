@@ -26,23 +26,6 @@ const AIAssistant = {
       document.getElementById('chatSend').disabled = false;
     }
 
-    // إضافة زر إدارة الاشتراك في الهيدر
-    const header = document.querySelector('.chat-header');
-    if (header && !document.getElementById('btnManageAiSub')) {
-      const manageBtn = document.createElement('button');
-      manageBtn.id = 'btnManageAiSub';
-      manageBtn.className = 'btn btn-sm btn-outline';
-      manageBtn.style.cssText = 'margin-right:auto; border-color:#3B82F6; color:#60A5FA;';
-      manageBtn.innerHTML = '<i data-lucide="settings" style="width:16px;height:16px;"></i> إدارة الاشتراك';
-      manageBtn.onclick = () => this.showAiPlans();
-      header.appendChild(manageBtn);
-      UI.fixIcons();
-    }
-
-    document.getElementById('chatSend').onclick = () => this.sendMessage();
-    document.getElementById('chatInput').onkeypress = (e) => { if (e.key === 'Enter') this.sendMessage(); };
-  },
-
   showAiPlans() {
     // تحديث حالة العميل من قاعدة البيانات لضمان دقة البيانات
     this.client = DB.findClient(this.client.num);
