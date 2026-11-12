@@ -51,7 +51,12 @@ export default async function handler(req, res) {
       })
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Error from Gemini API');
+    if (!response.ok) {
+  if (data.error?.message && data.error.message.includes('high demand')) {
+    throw new Error('عذراً، المساعد الذكي يواجه ضغطاً كبيراً من الزوار حالياً. يرجى المحاولة بعد قليل.');
+  }
+  throw new Error(data.error?.message || 'Error from Gemini API');
+    }
     const aiResponse = data.candidates[0].content.parts[0].text;
     return res.status(200).json({ reply: aiResponse });
   } catch (error) {
