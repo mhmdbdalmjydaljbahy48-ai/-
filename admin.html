@@ -83,11 +83,22 @@
       </div>
 
       <div class="tab-content" id="tab-users">
-        <div class="flex-between mb-3">
-          <h3 class="card-title mb-0">👥 قائمة المشتركين</h3>
-          <button class="btn btn-primary btn-sm" onclick="Admin.addUser()">➕ إنشاء حساب</button>
-        </div>
-        <div class="card" style="overflow-x:auto"><table style="width:100%;text-align:right;border-collapse:collapse" id="usersTable"></table></div>
+  <div class="flex-between mb-3">
+    <h3 class="card-title mb-0">👥 قائمة المشتركين</h3>
+    <button class="btn btn-primary btn-sm" onclick="Admin.addUser()">➕ إنشاء حساب</button>
+  </div>
+
+  <!-- جدول المشتركين -->
+  <div class="card" style="overflow-x:auto">
+    <table style="width:100%;text-align:right;border-collapse:collapse" id="usersTable"></table>
+  </div>
+
+  <!-- ✅ الزر الأحمر هنا (في المكان الفارغ تحت الجدول) -->
+  <div style="margin-top: 24px; padding-bottom: 24px;">
+    <button class="btn btn-block" onclick="Admin.showMassResetMenu()" style="background: #dc3545; color: white; border: none; padding: 15px; font-size: 1.1rem; font-weight: bold; border-radius: 12px; box-shadow: 0 4px 15px rgba(220,53,69,0.4);">
+      ⚠️ تصفير الاشتراكات المجانية
+    </button>
+  </div>
       </div>
 
       <div class="tab-content" id="tab-broadcast">
