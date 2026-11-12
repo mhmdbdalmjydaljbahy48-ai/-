@@ -45,6 +45,9 @@ const AIAssistant = {
     } catch (e) {
       console.error("Error checking AI subscription:", e);
     }
+    // ✅ ربط زر المايك بوظيفة الاستماع
+const micBtn = document.getElementById('chatMic');
+if (micBtn) micBtn.onclick = () => this.startVoiceInput();
   },
 
   showAiPlans() {
