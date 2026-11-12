@@ -201,6 +201,22 @@ const UI = {
         backdrop.classList.toggle('active', sidebar.classList.contains('open'));
       };
     }
+
+     // ✅ إضافة رابط الإشعارات تلقائياً
+if (nav && !nav.querySelector('a[href="notifications.html"]')) {
+   const notifLink = document.createElement('a');
+   notifLink.href = 'notifications.html';
+   notifLink.className = 'nav-link';
+   // يمكنك إضافة أيقونة جرس (bell) هنا
+   notifLink.innerHTML = '<i data-lucide="bell"></i> الإشعارات';
+   
+   // ضعه قبل صفحة الاشتراك
+   const subLink = nav.querySelector('a[href="subscription.html"]');
+   if (subLink) nav.insertBefore(notifLink, subLink);
+   else nav.appendChild(notifLink);
+}
+
+     
     backdrop.onclick = () => { sidebar.classList.remove('open'); backdrop.classList.remove('active'); };
      // ✅ إضافة رابط المحلل الذكي تلقائياً
 const nav = sidebar.querySelector('.sidebar-nav');
