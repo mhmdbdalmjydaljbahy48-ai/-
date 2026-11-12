@@ -485,12 +485,20 @@ function getAiSubscriptionStatus(client) {
   return { ok: dl >= 0, days: dl, expired: dl < 0, expiry: client.ai_expiry_date };
 }
 
-function requestAiTrial(num) {
+async function requestAiTrial(num) {
+  // ✅ الفحص السحابي المباشر: منع الغش
+  if (firestore) {
+    const doc = await firestore.collection('clients').doc(String(num)).get();
+    if (doc.exists) {
+      const cloudClient = doc.data();
+      if (cloudClient.ai_trial_used) return false; // إذا كان استخدمها في السحابة، ارفض فوراً
+    }
+  }
+
   const c = findClient(num);
   if (!c) return false;
-  if (c.ai_trial_used) return false; // لا يمكن استخدامها مرتين
+  if (c.ai_trial_used) return false; 
   
-  // إعطاء شهر مجاني للبوت
   const expiry = addMonths(now(), 1);
   updateClient(num, { 
     ai_expiry_date: expiry, 
