@@ -48,8 +48,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ⏱️ مؤقت بـ 8 ثوانٍ (إذا لم ترد جوجل، نلغي الطلب)
-    const fetchPromise = fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`, {
+    // ✅ تم تحديث النموذج إلى gemini-2.5-flash (أحدث وأكثر استقراراً)
+    const fetchPromise = fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
