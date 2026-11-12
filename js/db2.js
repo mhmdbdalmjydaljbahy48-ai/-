@@ -347,6 +347,9 @@ const DB = (() => {
       account_type: account_type || null, shop_name: shop_name || null,
       activity_type: activity_type || null, location: location || null,
       shop_location: shop_location || null, currency: currency || null,
+       ai_expiry_date: null, // تاريخ انتهاء اشتراك البوت
+ai_subscription_months: 0, // عدد أشهر البوت
+ai_trial_used: false, // هل استخدم التجربة المجانية؟
       created_at: now()
     };
 
