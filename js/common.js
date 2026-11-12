@@ -185,73 +185,78 @@ const UI = {
     btn.onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
     if (window.lucide) lucide.createIcons();
   },
-  initSidebar() {
-    const sidebar = document.querySelector('.sidebar');
-    if (!sidebar) return;
-    let backdrop = document.querySelector('.sidebar-backdrop');
-    if (!backdrop) {
-      backdrop = document.createElement('div');
-      backdrop.className = 'sidebar-backdrop';
-      document.body.appendChild(backdrop);
-    }
-    const hamburger = document.querySelector('.hamburger');
-    if (hamburger) {
-      hamburger.onclick = () => {
-        sidebar.classList.toggle('open');
-        backdrop.classList.toggle('active', sidebar.classList.contains('open'));
-      };
-    }
 
-     // ✅ إضافة رابط الإشعارات تلقائياً
-if (nav && !nav.querySelector('a[href="notifications.html"]')) {
-   const notifLink = document.createElement('a');
-   notifLink.href = 'notifications.html';
-   notifLink.className = 'nav-link';
-   // يمكنك إضافة أيقونة جرس (bell) هنا
-   notifLink.innerHTML = '<i data-lucide="bell"></i> الإشعارات';
-   
-   // ضعه قبل صفحة الاشتراك
-   const subLink = nav.querySelector('a[href="subscription.html"]');
-   if (subLink) nav.insertBefore(notifLink, subLink);
-   else nav.appendChild(notifLink);
-}
+initSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  if (!sidebar) return;
+  
+  let backdrop = document.querySelector('.sidebar-backdrop');
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.className = 'sidebar-backdrop';
+    document.body.appendChild(backdrop);
+  }
+  
+  const hamburger = document.querySelector('.hamburger');
+  if (hamburger) {
+    hamburger.onclick = () => {
+      sidebar.classList.toggle('open');
+      backdrop.classList.toggle('active', sidebar.classList.contains('open'));
+    };
+  }
+  
+  backdrop.onclick = () => { sidebar.classList.remove('open'); backdrop.classList.remove('active'); };
+  
+  // ✅ 1. تعريف المتغير nav أولاً (قبل استخدامه)
+  const nav = sidebar.querySelector('.sidebar-nav');
 
+  // ✅ 2. إضافة رابط الإشعارات
+  if (nav && !nav.querySelector('a[href="notifications.html"]')) {
+     const notifLink = document.createElement('a');
+     notifLink.href = 'notifications.html';
+     notifLink.className = 'nav-link';
+     notifLink.innerHTML = '<i data-lucide="bell"></i> الإشعارات';
+     const subLink = nav.querySelector('a[href="subscription.html"]');
+     if (subLink) nav.insertBefore(notifLink, subLink);
+     else nav.appendChild(notifLink);
+  }
+
+  // ✅ 3. إضافة رابط المحلل الذكي
+  if (nav && !nav.querySelector('a[href="ai-assistant.html"]')) {
+     const aiLink = document.createElement('a');
+     aiLink.href = 'ai-assistant.html';
+     aiLink.className = 'nav-link';
+     aiLink.innerHTML = '<i data-lucide="bot"></i> المحلل الذكي';
+     const subLink = nav.querySelector('a[href="subscription.html"]');
+     if (subLink) nav.insertBefore(aiLink, subLink);
+     else nav.appendChild(aiLink);
+  }
+
+  // ✅ 4. تفعيل الرابط النشط
+  const page = location.pathname.split('/').pop() || 'index.html';
+  sidebar.querySelectorAll('.nav-link').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && href === page) link.classList.add('active');
+  });
+
+  // ✅ 5. إضافة زر حذف الحساب
+  const footer = sidebar.querySelector('.sidebar-footer');
+  if (footer && !footer.querySelector('.btn-delete-account')) {
+     const btn = document.createElement('button');
+     btn.className = 'btn btn-danger btn-block btn-sm mt-2 btn-delete-account';
+     btn.style.background = '#dc3545';
+     btn.style.color = '#fff';
+     btn.style.border = 'none';
+     btn.innerHTML = '<i data-lucide="trash-2"></i> حذف حسابي نهائياً';
+     btn.onclick = () => UI.confirmDeleteAccount();
+     footer.appendChild(btn);
      
-    backdrop.onclick = () => { sidebar.classList.remove('open'); backdrop.classList.remove('active'); };
-     // ✅ إضافة رابط المحلل الذكي تلقائياً
-const nav = sidebar.querySelector('.sidebar-nav');
-if (nav && !nav.querySelector('a[href="ai-assistant.html"]')) {
-   const aiLink = document.createElement('a');
-   aiLink.href = 'ai-assistant.html';
-   aiLink.className = 'nav-link';
-   aiLink.innerHTML = '<i data-lucide="bot"></i> المحلل الذكي';
-   // ضعه قبل صفحة الاشتراك
-   const subLink = nav.querySelector('a[href="subscription.html"]');
-   if (subLink) nav.insertBefore(aiLink, subLink);
-   else nav.appendChild(aiLink);
-}
-    const page = location.pathname.split('/').pop() || 'index.html';
-    sidebar.querySelectorAll('.nav-link').forEach(link => {
-      const href = link.getAttribute('href');
-      if (href && href === page) link.classList.add('active');
-    });
+     const c = DB.currentClient();
+     if (c && DB.isAdmin(c.num)) btn.style.display = 'none';
+  }
+},
 
-    const footer = sidebar.querySelector('.sidebar-footer');
-    if (footer && !footer.querySelector('.btn-delete-account')) {
-       const btn = document.createElement('button');
-       btn.className = 'btn btn-danger btn-block btn-sm mt-2 btn-delete-account';
-       btn.style.background = '#dc3545';
-       btn.style.color = '#fff';
-       btn.style.border = 'none';
-       btn.style.transition = 'all 0.3s';
-       btn.innerHTML = '<i data-lucide="trash-2"></i> حذف حسابي نهائياً';
-       btn.onclick = () => UI.confirmDeleteAccount();
-       footer.appendChild(btn);
-       
-       const c = DB.currentClient();
-       if (c && DB.isAdmin(c.num)) btn.style.display = 'none';
-    }
-  },
+   
   initTopbar() {
     const themeBtn = document.querySelector('[data-theme-toggle]');
     if (themeBtn) themeBtn.onclick = () => this.toggleTheme();
