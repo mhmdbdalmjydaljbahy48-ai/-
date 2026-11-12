@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الإشعارات — ✨️ FT</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <canvas id="golden-particles"></canvas>
+  <aside class="sidebar">
+    <div class="sidebar-brand"><div class="sidebar-logo">✨</div><div><div class="sidebar-title">FT</div><div class="sidebar-sub">الإشعارات</div></div></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-link"><i data-lucide="home"></i> الرئيسية</a>
+      <a href="shop.html" class="nav-link"><i data-lucide="shopping-cart"></i> المتجر</a>
+      <a href="personal.html" class="nav-link"><i data-lucide="user"></i> القسم الفردي</a>
+      <a href="ai-assistant.html" class="nav-link"><i data-lucide="bot"></i> المحلل الذكي</a>
+      <a href="notifications.html" class="nav-link active"><i data-lucide="bell"></i> الإشعارات</a>
+      <a href="subscription.html" class="nav-link"><i data-lucide="star"></i> اشتراكي</a>
+      <a href="support.html" class="nav-link"><i data-lucide="headphones"></i> الدعم</a>
+      <a href="admin.html" class="nav-link" data-admin-only style="display:none"><i data-lucide="shield"></i> لوحة الإدارة</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card"><div class="user-avatar" id="userAvatar">?</div><div style="min-width:0;flex:1"><div class="user-name" id="userName">—</div><div class="user-role" id="userRole">—</div></div></div>
+      <button class="btn btn-ghost btn-block btn-sm" data-logout><i data-lucide="log-out"></i> خروج</button>
+    </div>
+  </aside>
+  <div class="sidebar-backdrop"></div>
+  <header class="topbar">
+    <div class="flex" style="align-items:center;gap:12px"><button class="hamburger"><i data-lucide="menu"></i></button><div class="topbar-title">🔔 الإشعارات والرسائل</div></div>
+    <div class="topbar-actions"><button class="icon-btn" data-theme-toggle><i data-lucide="sun-moon"></i></button></div>
+  </header>
+  <main class="main-content">
+    <div class="container">
+      <div class="flex-between mb-3">
+        <h3 class="card-title mb-0">📥 صندوق الوارد</h3>
+        <button class="btn btn-danger btn-sm" onclick="Notifs.clearAll()"><i data-lucide="trash-2"></i> مسح الكل</button>
+      </div>
+      <div id="notificationsList"></div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/db2.js?v=30"></script>
+  <script src="js/common.js?v=30"></script>
+  <script src="js/notifications.js?v=1"></script>
+</body>
+</html>
