@@ -1071,6 +1071,23 @@ function resetAiSubscription(num) {
     if (changed) set(KEYS.notifications, arr);
   }
 
+
+   // دالة حذف إشعار واحد
+function deleteNotification(id) {
+  const arr = get(KEYS.notifications, []);
+  set(KEYS.notifications, arr.filter(n => Number(n.id) !== Number(id)));
+  cloudSync('notifications', id, null);
+}
+
+// دالة مسح جميع إشعارات عميل معين
+function clearNotifications(clientNum) {
+  const arr = get(KEYS.notifications, []);
+  const toDelete = arr.filter(n => Number(n.client_num) === Number(clientNum));
+  toDelete.forEach(n => cloudSync('notifications', n.id, null));
+  set(KEYS.notifications, arr.filter(n => Number(n.client_num) !== Number(clientNum)));
+}
+   
+
   function addPaymentProof(reqId, clientNum, content) {
     const arr = get(KEYS.paymentProofs, []);
     const id = generateId();
