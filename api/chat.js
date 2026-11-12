@@ -21,7 +21,6 @@ export default async function handler(req, res) {
     parts: [{ text: message }]
   });
 
-  // ✅ هنا تم تعديل التوجيه ليتحدث بلهجة الزائر
   const systemPrompt = `
     أنت المساعد الذكي لنظام "FT لإدارة الأسواق والديون". 
     أنت ودود ومحترف.
@@ -42,7 +41,8 @@ export default async function handler(req, res) {
   `;
   
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+    // ✅ تم تحديث اسم النموذج إلى gemini-3.8-flash
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -56,6 +56,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ reply: aiResponse });
   } catch (error) {
     console.error('AI Error:', error);
-    return res.status(500).json({ error: 'حدث خطأ: ' + error.message }); // أضفنا عرض الخطأ الحقيقي للتشخيص
+    return res.status(500).json({ error: 'حدث خطأ: ' + error.message });
   }
 }
