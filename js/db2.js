@@ -477,6 +477,62 @@ ai_trial_used: false, // هل استخدم التجربة المجانية؟
     });
   }
 
+
+// --- دوال اشتراك الذكاء الاصطناعي (البوت) ---
+function getAiSubscriptionStatus(client) {
+  if (!client || !client.ai_expiry_date) return { ok: false, days: null, expired: true };
+  const dl = daysBetween(now(), client.ai_expiry_date);
+  return { ok: dl >= 0, days: dl, expired: dl < 0, expiry: client.ai_expiry_date };
+}
+
+function requestAiTrial(num) {
+  const c = findClient(num);
+  if (!c) return false;
+  if (c.ai_trial_used) return false; // لا يمكن استخدامها مرتين
+  
+  // إعطاء شهر مجاني للبوت
+  const expiry = addMonths(now(), 1);
+  updateClient(num, { 
+    ai_expiry_date: expiry, 
+    ai_subscription_months: 1, 
+    ai_trial_used: true 
+  });
+  logAudit('AI_TRIAL', num, 'Used free AI trial');
+  return true;
+}
+
+function createAiSubRequest({ client_num, months, amount }) {
+  const reqs = get(KEYS.subRequests, []);
+  const id = generateId();
+  const req = { 
+    req_id: id, client_num: Number(client_num), months: Number(months), 
+    amount: Number(amount), type: 'ai', // نوع الطلب: بوت
+    status: 'PENDING', created_at: now(), 
+    decided_at: null, decided_by: null 
+  };
+  reqs.unshift(req); set(KEYS.subRequests, reqs); cloudSync('sub_requests', id, req);
+  logAudit('AI_SUB_REQUEST', client_num, `req=${id}`);
+  return id;
+}
+
+function grantAiSubscription(num, { months=0, reset=false }) {
+  const client = findClient(num);
+  if (!client) throw new Error('العميل غير موجود');
+  
+  const base = reset ? now() : (client.ai_expiry_date && new Date(client.ai_expiry_date) > new Date() ? client.ai_expiry_date : now());
+  const d = new Date(base);
+  d.setMonth(d.getMonth() + Number(months));
+  
+  return updateClient(num, {
+    ai_expiry_date: d.toISOString(),
+    ai_subscription_months: (reset ? 0 : (client.ai_subscription_months || 0)) + Number(months)
+  });
+}
+
+function resetAiSubscription(num) {
+  return updateClient(num, { ai_expiry_date: null, ai_subscription_months: 0 });
+}
+   
   function currentSession() { return get(KEYS.currentSession, null); }
   function setSession(num) { set(KEYS.currentSession, { clientNum: Number(num), at: now() }); }
   function clearSession() { set(KEYS.currentSession, null); }
