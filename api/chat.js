@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     });
     
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('API Timeout')), 8000)
+      setTimeout(() => reject(new Error('API Timeout')), 60000)
     );
 
     const response = await Promise.race([fetchPromise, timeoutPromise]);
