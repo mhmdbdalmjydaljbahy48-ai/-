@@ -34,6 +34,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('daysLeft').textContent = UI.fmtRemaining(client.expiry_date);
   document.getElementById('subStatus').textContent = `ينتهي اشتراكك في ${UI.fmtDate(client.expiry_date)}`;
 
+
+  // تحديث حالة اشتراك البوت
+const aiSub = DB.getAiSubscriptionStatus(client);
+const aiDaysEl = document.getElementById('aiDaysLeft');
+if (aiDaysEl) {
+  if (DB.isAdmin(client.num)) {
+    aiDaysEl.textContent = 'مدير (غير محدود)';
+    aiDaysEl.style.color = 'var(--amber)';
+  } else if (!client.ai_expiry_date) {
+    aiDaysEl.textContent = 'غير مشترك ❌';
+    aiDaysEl.style.color = 'var(--danger)';
+  } else if (aiSub.ok) {
+    aiDaysEl.textContent = UI.fmtRemaining(client.ai_expiry_date);
+    aiDaysEl.style.color = '#60A5FA';
+  } else {
+    aiDaysEl.textContent = 'منتهي ⛔';
+    aiDaysEl.style.color = 'var(--danger)';
+  }
+}
+
+  
   const reminder = DB.checkRemindersOnLogin(client.num);
   if (reminder) {
     setTimeout(() => {
