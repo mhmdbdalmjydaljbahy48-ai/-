@@ -2,6 +2,7 @@ const AIAssistant = {
   client: null,
   history: [],
   isTyping: false,
+  isMuted: false, // ✅ إضافة حالة الصوت
 
   init() {
     this.client = UI.requireLogin();
@@ -48,6 +49,27 @@ const AIAssistant = {
     // ✅ ربط زر المايك بوظيفة الاستماع
 const micBtn = document.getElementById('chatMic');
 if (micBtn) micBtn.onclick = () => this.startVoiceInput();
+
+    // ✅ ربط زر كتم الصوت
+const muteBtn = document.getElementById('btnToggleMute');
+if (muteBtn) {
+  muteBtn.onclick = () => {
+    this.isMuted = !this.isMuted;
+    const icon = document.getElementById('muteIcon');
+    if (this.isMuted) {
+      icon.setAttribute('data-lucide', 'volume-x'); // أيقونة مكتوم
+      muteBtn.style.color = 'var(--danger)';
+      muteBtn.style.borderColor = 'var(--danger)';
+      UI.toast('تم كتم صوت البوت', 'info');
+    } else {
+      icon.setAttribute('data-lucide', 'volume-2'); // أيقونة الصوت
+      muteBtn.style.color = '#60A5FA';
+      muteBtn.style.borderColor = '#3B82F6';
+      UI.toast('تم تشغيل صوت البوت', 'success');
+    }
+    UI.fixIcons();
+  };
+}
   },
 
   showAiPlans() {
