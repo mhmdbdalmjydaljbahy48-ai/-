@@ -530,37 +530,93 @@ checkClientDetails(num) {
   });
 },
 
-// تصفير المجانيين
-massReset(type) {
-  const typeName = type === 'main' ? 'النظام' : 'البوت';
+// 1. نافذة اختيار النوع (تظهر عند الضغط على الزر الأحمر)
+showMassResetMenu() {
   UI.modal({
-    title: `⚠️ تصفير الاشتراكات المجانية (${typeName})`,
+    title: '⚠️ تصفير الاشتراكات المجانية',
     content: `
-      <p class="text-muted mb-2">سيتم تصفير جميع الحسابات التي تستخدم الفترة المجانية، <b>ما عدا</b> الأرقام التي تكتبها في المربع أدناه.</p>
-      <div class="form-group">
-        <label class="form-label">استثناء أرقام (افصل بينها بفاصلة ,)</label>
-        <input class="form-input" id="excludeNums" placeholder="مثال: 770712071, 11223344">
+      <p class="mb-4">اختر نوع الاشتراك الذي تريد تصفيره:</p>
+      <div class="flex gap-2" style="flex-direction: column;">
+        <button class="btn btn-primary btn-block" onclick="Admin.massReset('ai')" style="background:#3B82F6; color:white;">🤖 تصفير اشتراكات البوت المجانية</button>
+        <button class="btn btn-primary btn-block" onclick="Admin.massReset('main')" style="background:#F59E0B; color:white;">📄 تصفير اشتراكات النظام المجانية</button>
       </div>
-      <button class="btn btn-danger btn-block" id="btnMassReset">تأكيد التصفير</button>
-    `,
-    onOpen: (el, close) => {
-      el.querySelector('#btnMassReset').onclick = () => {
-        const excText = el.querySelector('#excludeNums').value;
-        const excNums = excText.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n));
-        
-        UI.confirm({ 
-          title: 'تأكيد نهائي', message: 'هل أنت متأكد؟ لا يمكن التراجع!', danger: true, onConfirm: () => {
-            DB.massResetFree(type, excNums);
-            UI.toast('✅ تم تصفير الاشتراكات المجانية بنجاح', 'success');
-            close();
-            this.render();
-          }
-        });
-      };
-    }
+    `
   });
 },
 
+// 2. عرض القائمة المفلترة مع البحث والاستثناء
+massReset(type) {
+  const typeName = type === 'main' ? 'النظام' : 'البوت';
+  const color = type === 'main' ? '#F59E0B' : '#3B82F6';
+  const allClients = DB.getAllClients();
+  
+  // فلترة ذكية: نعرض فقط الحسابات المجانية
+  const freeClients = allClients.filter(c => {
+    if (type === 'main') {
+      return c.subscription_months <= 1 && (c.money === 0 || !c.money);
+    } else {
+      return c.ai_trial_used === true && c.ai_subscription_months <= 1;
+    }
+  });
+
+  if (freeClients.length === 0) {
+    return UI.modal({ title: 'تنبيه', content: '<p class="text-center text-muted">لا يوجد مشتركون مجانيون لتصفيرهم حالياً.</p>' });
+  }
+  
+  let listHtml = freeClients.map(c => `
+    <label style="display:flex; align-items:center; gap:10px; padding:10px; border-bottom:1px solid var(--border-2); cursor:pointer;" class="client-row" data-search="${UI.esc(c.name)} ${c.num}">
+      <input type="checkbox" class="exclude-check" value="${c.num}" style="width:20px; height:20px;">
+      <div>
+        <b>${UI.esc(c.name)}</b> (${c.num})
+        <div style="font-size:0.8rem; color:var(--text-3)">${c.account_type || 'غير محدد'}</div>
+      </div>
+    </label>
+  `).join('');
+
+  UI.modal({
+    title: `⚠️ تصفير ${typeName} المجاني`,
+    content: `
+      <p class="text-muted mb-2">سيتم تصفير جميع الحسابات المجانية <b>ما عدا</b> الذين تضع عليهم علامة (صح).</p>
+      <div class="form-group">
+        <input type="text" class="form-input" id="massResetSearch" placeholder="🔍 ابحث بالاسم أو الرقم..." oninput="Admin.filterMassReset(this.value)">
+      </div>
+      <div style="max-height: 300px; overflow-y: auto; border:1px solid var(--border); border-radius:8px; margin-bottom:20px;" id="massResetList">
+        ${listHtml}
+      </div>
+      <button class="btn btn-danger btn-block" onclick="Admin.confirmMassReset('${type}')" style="background:${color}; color:#fff; border:none;">تأكيد التصفير</button>
+    `,
+    onOpen: (el) => el.style.maxWidth = '500px'
+  });
+},
+
+// 3. دالة البحث الفوري في القائمة
+filterMassReset(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('.client-row').forEach(row => {
+    const searchText = row.getAttribute('data-search').toLowerCase();
+    row.style.display = searchText.includes(q) ? 'flex' : 'none';
+  });
+},
+
+// 4. تنفيذ التصفير
+confirmMassReset(type) {
+  const excludeNums = [];
+  document.querySelectorAll('.exclude-check:checked').forEach(cb => {
+    excludeNums.push(Number(cb.value));
+  });
+
+  UI.confirm({
+    title: 'تأكيد نهائي',
+    message: `هل أنت متأكد من تصفير اشتراكات ${type === 'main' ? 'النظام' : 'البوت'} المجانية؟ (سيتم استثناء ${excludeNums.length} حساب)`,
+    danger: true,
+    onConfirm: () => {
+      DB.massResetFree(type, excludeNums);
+      UI.toast('✅ تم التصفير بنجاح', 'success');
+      document.getElementById('ft-modal').remove();
+      this.render();
+    }
+  });
+},
   
 
   loadSettings() {
