@@ -253,39 +253,84 @@
 
 
 
-  <!-- 🤖 مساعد الذكاء الاصطناعي العائم -->
+<!-- 🤖 مساعد الذكاء الاصطناعي (أسطوري) -->
 <style>
-  .ai-chat-btn { position: fixed; bottom: 90px; right: 24px; z-index: 9999; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, var(--amber), var(--amber-dark)); color: #000; display: grid; place-items: center; box-shadow: 0 8px 24px var(--amber-glow); cursor: pointer; transition: transform 0.3s; }
-  .ai-chat-btn:hover { transform: scale(1.1); }
-  .ai-chat-window { position: fixed; bottom: 100px; right: 24px; z-index: 9999; width: 350px; max-width: calc(100vw - 48px); height: 500px; max-height: calc(100vh - 150px); background: var(--bg-2); border: 1px solid var(--amber); border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: none; flex-direction: column; overflow: hidden; }
-  .ai-chat-header { background: var(--bg-3); padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-  .ai-chat-header h4 { margin: 0; color: var(--amber); font-size: 1.1rem; }
-  .ai-chat-close { cursor: pointer; color: var(--text-2); background: none; border: none; font-size: 1.2rem; }
-  .ai-chat-messages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
-  .ai-msg { padding: 10px 14px; border-radius: 12px; max-width: 80%; font-size: 0.95rem; line-height: 1.5; }
-  .ai-msg.user { background: var(--amber); color: #000; align-self: flex-end; border-bottom-left-radius: 4px; }
-  .ai-msg.model { background: var(--bg-3); color: var(--text); align-self: flex-start; border-bottom-right-radius: 4px; border: 1px solid var(--border-2); }
-  .ai-chat-input-box { padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: var(--bg-2); }
-  .ai-chat-input-box input { flex: 1; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--border-2); background: var(--bg-3); color: var(--text); }
-  .ai-chat-input-box input:focus { outline: none; border-color: var(--amber); }
-  .ai-chat-input-box button { width: 40px; height: 40px; border-radius: 50%; background: var(--amber); border: none; cursor: pointer; color: #000; display: grid; place-items: center; }
+  /* تأثيرات الحركة */
+  @keyframes float-bot { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  @keyframes glow-pulse { 0%, 100% { box-shadow: 0 0 15px #3B82F6, 0 0 30px #3B82F6; } 50% { box-shadow: 0 0 25px #60A5FA, 0 0 50px #60A5FA; } }
+  @keyframes bg-pan { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+  
+  /* زر الروبوت العائم */
+  .ai-chat-btn {
+    position: fixed; bottom: 90px; right: 24px; z-index: 9999;
+    width: 65px; height: 65px; border-radius: 50%;
+    background: linear-gradient(135deg, #1E3A8A, #3B82F6);
+    color: #fff; display: grid; place-items: center;
+    cursor: pointer; border: 2px solid #60A5FA;
+    animation: float-bot 3s ease-in-out infinite, glow-pulse 2s infinite;
+    transition: transform 0.3s;
+  }
+  .ai-chat-btn:hover { transform: scale(1.1) translateY(-5px); }
+
+  /* نافذة الدردشة (زجاجية مع خلفية متحركة) */
+  .ai-chat-window {
+    position: fixed; bottom: 170px; right: 24px; z-index: 9999;
+    width: 380px; max-width: calc(100vw - 48px); height: 550px; max-height: calc(100vh - 200px);
+    background: rgba(15, 23, 42, 0.85); /* أزرق داكن شفاف */
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(96, 165, 250, 0.5); border-radius: 24px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5), inset 0 0 20px rgba(59, 130, 246, 0.2);
+    display: none; flex-direction: column; overflow: hidden;
+    transform-origin: bottom right; animation: scaleIn 0.3s ease-out;
+  }
+
+  /* خلفية الروبوت الثلاثي الأبعاد (وهمية عبر CSS) */
+  .ai-chat-window::before {
+    content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 60%),
+                radial-gradient(circle, rgba(147, 51, 234, 0.1) 0%, transparent 60%);
+    background-size: 50% 50%; background-position: 0 0, 100% 100%;
+    animation: bg-pan 15s linear infinite; z-index: 0; pointer-events: none;
+  }
+
+  .ai-chat-header { position: relative; z-index: 1; background: rgba(30, 58, 138, 0.8); padding: 16px; border-bottom: 1px solid rgba(96, 165, 250, 0.3); display: flex; justify-content: space-between; align-items: center; color: #fff; }
+  .ai-chat-header h4 { margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+  .ai-chat-controls button { cursor: pointer; color: #fff; background: rgba(255,255,255,0.1); border: none; padding: 6px; border-radius: 8px; transition: 0.2s; }
+  .ai-chat-controls button:hover { background: rgba(255,255,255,0.3); }
+
+  .ai-chat-messages { position: relative; z-index: 1; flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+  
+  /* الرسائل */
+  .ai-msg { padding: 12px 18px; border-radius: 16px; max-width: 85%; font-size: 0.95rem; line-height: 1.6; position: relative; z-index: 1; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+  .ai-msg.user { background: linear-gradient(135deg, #2563EB, #3B82F6); color: #fff; align-self: flex-end; border-bottom-left-radius: 4px; }
+  .ai-msg.model { background: rgba(30, 41, 59, 0.9); color: #F8FAFC; align-self: flex-start; border-bottom-right-radius: 4px; border: 1px solid rgba(96, 165, 250, 0.3); }
+  .ai-msg.model::before { content: '🤖'; position: absolute; left: -30px; top: 10px; font-size: 1.2rem; }
+
+  .ai-chat-input-box { position: relative; z-index: 1; padding: 16px; border-top: 1px solid rgba(96, 165, 250, 0.3); display: flex; gap: 10px; background: rgba(15, 23, 42, 0.9); }
+  .ai-chat-input-box input { flex: 1; padding: 14px 20px; border-radius: 999px; border: 1px solid rgba(96, 165, 250, 0.4); background: rgba(30, 41, 59, 0.8); color: #fff; transition: 0.3s; }
+  .ai-chat-input-box input:focus { outline: none; border-color: #60A5FA; box-shadow: 0 0 15px rgba(96, 165, 250, 0.4); }
+  .ai-chat-input-box button { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #3B82F6, #1D4ED8); border: none; cursor: pointer; color: #fff; display: grid; place-items: center; transition: 0.3s; box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
+  .ai-chat-input-box button:hover { transform: scale(1.05); box-shadow: 0 0 25px rgba(59, 130, 246, 0.8); }
 </style>
 
-<button class="ai-chat-btn" id="aiChatBtn" title="مساعد FT الذكي"><i data-lucide="bot" style="width:28px; height:28px;"></i></button>
+<button class="ai-chat-btn" id="aiChatBtn" title="مساعد FT الذكي">
+  <i data-lucide="bot" style="width:32px; height:32px;"></i>
+</button>
+
 <div class="ai-chat-window" id="aiChatWindow">
   <div class="ai-chat-header">
-    <h4>🤖 مساعد FT</h4>
-    <div style="display:flex; gap:8px; align-items:center;">
-  <button class="ai-chat-close" id="aiChatMinimize" title="تصغير" style="color:var(--text-2)"><i data-lucide="minus" style="width:20px;height:20px;"></i></button>
-  <button class="ai-chat-close" id="aiChatClose" title="إغلاق ومسح المحادثة" style="color:var(--danger)"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+    <h4><i data-lucide="sparkles" style="color:#FCD34D"></i> مساعد FT الذكي</h4>
+    <div class="ai-chat-controls">
+      <button id="aiChatMinimize" title="تصغير"><i data-lucide="minus" style="width:18px;height:18px;"></i></button>
+      <button id="aiChatClose" title="إغلاق ومسح" style="color:#F87171"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
     </div>
   </div>
   <div class="ai-chat-messages" id="aiChatMessages">
-    <div class="ai-msg model">مرحباً بك في نظام FT! كيف يمكنني مساعدتك اليوم؟ يمكنك سؤالي عن الميزات، الأسعار، أو كيفية التسجيل.</div>
+    <div class="ai-msg model">مرحباً بك في نظام FT! أنا مساعدك الذكي. كيف يمكنني مساعدتك اليوم؟</div>
   </div>
   <div class="ai-chat-input-box">
     <input type="text" id="aiChatInput" placeholder="اكتب سؤالك هنا..." autocomplete="off">
-    <button id="aiChatSend"><i data-lucide="send" style="width:18px;height:18px;"></i></button>
+    <button id="aiChatSend"><i data-lucide="send" style="width:20px;height:20px;"></i></button>
   </div>
 </div>
 
