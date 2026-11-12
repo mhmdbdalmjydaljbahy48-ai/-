@@ -536,7 +536,6 @@ function resetAiSubscription(num) {
 
    function massResetFree(type, excludeNums = []) {
   let clients = getAllClients();
-  let changed = false;
   clients.forEach(c => {
     if (excludeNums.includes(Number(c.num))) return;
     
