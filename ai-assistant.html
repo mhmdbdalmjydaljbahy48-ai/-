@@ -121,8 +121,14 @@
         </div>
         
         <div class="chat-input-area">
-          <input type="text" id="chatInput" placeholder="اكتب سؤالك هنا..." autocomplete="off">
-          <button id="chatSend"><i data-lucide="send" style="width:24px;height:24px;"></i></button>
+  <input type="text" id="chatInput" placeholder="اكتب أو تحدث بسؤالك هنا..." autocomplete="off">
+  
+  <!-- ✅ زر التحدث (المايك) -->
+  <button id="chatMic" style="background: #10B981; color: #fff; border: none; border-radius: 50%; width: 50px; height: 50px; display: grid; place-items: center; cursor: pointer; transition: 0.3s; box-shadow: 0 0 15px rgba(16,185,129,0.4);">
+    <i data-lucide="mic" style="width:24px;height:24px;"></i>
+  </button>
+
+  <button id="chatSend"><i data-lucide="send" style="width:24px;height:24px;"></i></button>
         </div>
       </div>
     </div>
