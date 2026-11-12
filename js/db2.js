@@ -1301,6 +1301,9 @@ function clearNotifications(clientNum) {
     getSalesByPeriod, getDebtPaidTotal, getImportsByPeriod, getProfitsByPeriod,
     getBestSellingProduct, getProductMovement, getAdvancedAnalytics,
     getAiSubscriptionStatus, requestAiTrial, createAiSubRequest, grantAiSubscription, resetAiSubscription,massResetFree,
+     addNotification, getNotifications, markAllNotificationsRead,
+deleteNotification, clearNotifications, // ✅ تمت الإضافة هنا
+addPaymentProof, getPaymentProofs,
   };
 })();
 
