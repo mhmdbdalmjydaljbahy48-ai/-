@@ -532,6 +532,37 @@ function grantAiSubscription(num, { months=0, reset=false }) {
 function resetAiSubscription(num) {
   return updateClient(num, { ai_expiry_date: null, ai_subscription_months: 0 });
 }
+
+
+   function massResetFree(type, excludeNums = []) {
+  let clients = getAllClients();
+  let changed = false;
+  clients.forEach(c => {
+    if (excludeNums.includes(Number(c.num))) return;
+    
+    if (type === 'main') {
+      // إذا كان اشتراك النظام مجاني (شهر واحد) ولم يدفع
+      if (c.subscription_months === 1 && (c.money === 0 || !c.money)) {
+        c.expiry_date = new Date(Date.now() - 86400000).toISOString();
+        c.subscription_months = 0;
+        changed = true;
+        cloudSync('clients', c.num, c);
+      }
+    } else if (type === 'ai') {
+      // إذا كان اشتراك البوت مجاني (شهر تجريبي)
+      if (c.ai_trial_used && c.ai_subscription_months <= 1) {
+        c.ai_expiry_date = null;
+        c.ai_subscription_months = 0;
+        c.ai_trial_used = false; // إعادة تصفير التجربة
+        changed = true;
+        cloudSync('clients', c.num, c);
+      }
+    }
+  });
+  if (changed) set(KEYS.clients, clients);
+  return true;
+   }
+
    
   function currentSession() { return get(KEYS.currentSession, null); }
   function setSession(num) { set(KEYS.currentSession, { clientNum: Number(num), at: now() }); }
