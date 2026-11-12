@@ -318,10 +318,11 @@
         const data = await res.json();
         document.getElementById(loadingId).remove();
         if (data.reply) {
-          messages.innerHTML += `<div class="ai-msg model">${data.reply}</div>`;
-          chatHistory.push({ role: 'model', text: data.reply });
-        } else {
-          messages.innerHTML += `<div class="ai-msg model" style="color:var(--danger)">عذراً، حدث خطأ. حاول مرة أخرى.</div>`;
+  messages.innerHTML += `<div class="ai-msg model">${data.reply}</div>`;
+  chatHistory.push({ role: 'model', text: data.reply });
+} else {
+  // إظهار الخطأ الحقيقي القادم من السيرفر
+  messages.innerHTML += `<div class="ai-msg model" style="color:var(--danger)">${data.error || 'عذراً، حدث خطأ غير معروف.'}</div>`;
         }
       } catch (e) {
         document.getElementById(loadingId).remove();
