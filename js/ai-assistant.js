@@ -7,6 +7,7 @@ const AIAssistant = {
     this.client = UI.requireLogin();
     if (!this.client) return;
     document.getElementById('userAvatar').textContent = this.client.name.charAt(0);
+    document.getElementById('chatSend').onclick = () => this.sendMessage();
     document.getElementById('userName').textContent = this.client.name;
     document.getElementById('userRole').textContent = this.client.account_type || 'مستخدم';
     if (DB.isAdmin(this.client.num) || this.client.is_admin) {
@@ -25,6 +26,12 @@ const AIAssistant = {
       document.getElementById('chatInput').disabled = false;
       document.getElementById('chatSend').disabled = false;
     }
+// ✅ ربط زر إدارة الاشتراك الفضي بالوظيفة
+const manageBtn = document.getElementById('btnManageAiSub');
+if (manageBtn) {
+  manageBtn.onclick = () => this.showAiPlans();
+}
+    
 
   showAiPlans() {
     // تحديث حالة العميل من قاعدة البيانات لضمان دقة البيانات
