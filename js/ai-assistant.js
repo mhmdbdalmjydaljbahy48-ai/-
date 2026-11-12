@@ -4,18 +4,83 @@ const AIAssistant = {
   isTyping: false,
 
   init() {
-    this.client = UI.requireLogin();
-    if (!this.client) return;
-    document.getElementById('userAvatar').textContent = this.client.name.charAt(0);
-    document.getElementById('userName').textContent = this.client.name;
-    document.getElementById('userRole').textContent = this.client.account_type || 'مستخدم';
-    if (DB.isAdmin(this.client.num) || this.client.is_admin) {
-      document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'flex');
-    }
+  this.client = UI.requireLogin();
+  if (!this.client) return;
+  document.getElementById('userAvatar').textContent = this.client.name.charAt(0);
+  document.getElementById('userName').textContent = this.client.name;
+  document.getElementById('userRole').textContent = this.client.account_type || 'مستخدم';
+  if (DB.isAdmin(this.client.num) || this.client.is_admin) {
+    document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'flex');
+  }
 
-    document.getElementById('chatSend').onclick = () => this.sendMessage();
-    document.getElementById('chatInput').onkeypress = (e) => { if (e.key === 'Enter') this.sendMessage(); };
-  },
+  // التحقق من اشتراك البوت
+  const aiSub = DB.getAiSubscriptionStatus(this.client);
+  if (!aiSub.ok && !DB.isAdmin(this.client.num)) {
+    document.getElementById('aiLockScreen').style.display = 'flex';
+    document.getElementById('chatInput').disabled = true;
+    document.getElementById('chatSend').disabled = true;
+    document.getElementById('btnShowAiPlans').onclick = () => this.showAiPlans();
+  } else {
+    document.getElementById('aiLockScreen').style.display = 'none';
+    document.getElementById('chatInput').disabled = false;
+    document.getElementById('chatSend').disabled = false;
+  }
+
+  document.getElementById('chatSend').onclick = () => this.sendMessage();
+  document.getElementById('chatInput').onkeypress = (e) => { if (e.key === 'Enter') this.sendMessage(); };
+},
+
+showAiPlans() {
+  const price = DB.getSettings().ai_month_price || 0; // سعر البوت الشهري (سنضيفه في الإعدادات لاحقاً)
+  const trialUsed = this.client.ai_trial_used;
+
+  let html = `<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));gap:15px;margin-top:20px">`;
+  for (let i = 1; i <= 12; i++) {
+    html += `<div style="background:rgba(30,41,59,0.8);border:1px solid rgba(96,165,250,0.3);border-radius:12px;padding:15px;text-align:center">
+      <h4 style="color:#60A5FA;margin-bottom:10px">${DB.durationLabel(i)}</h4>
+      <div style="font-size:1.2rem;font-weight:900;color:#fff;margin-bottom:15px">${UI.fmtNum(i * price)} <small>ريال</small></div>
+      <button class="btn btn-primary btn-sm btn-block" onclick="AIAssistant.requestAiSub(${i})">اشتراك</button>
+    </div>`;
+  }
+  html += `</div>`;
+
+  if (!trialUsed) {
+     html = `<div style="text-align:center;margin-bottom:20px;padding:15px;background:rgba(16,185,129,0.1);border:1px solid #10B981;border-radius:12px">
+        <p style="color:#10B981;font-weight:bold;margin-bottom:10px">🎁 إدارة النظام تمنحك شهراً تجريبياً مجانياً!</p>
+        <button class="btn btn-success btn-block" onclick="AIAssistant.requestAiTrial()">تجربة الشهر المجاني (مرة واحدة فقط)</button>
+     </div>` + html;
+  }
+
+  UI.modal({
+    title: '💎 باقات المحلل الذكي',
+    content: html,
+    onOpen: (el) => {
+       el.style.maxWidth = '600px';
+    }
+  });
+},
+
+async requestAiTrial() {
+  if (confirm('هل أنت متأكد؟ لا يمكنك استخدام التجربة المجانية إلا مرة واحدة في العمر.')) {
+    DB.requestAiTrial(this.client.num);
+    UI.toast('🎉 مبروك! تم تفعيل الشهر المجاني.', 'success');
+    setTimeout(() => location.reload(), 1500);
+  }
+},
+
+requestAiSub(months) {
+  const price = DB.getSettings().ai_month_price || 0;
+  const amount = months * price;
+  UI.confirm({
+    title: 'طلب اشتراك البوت',
+    message: `هل تريد طلب اشتراك المحلل الذكي لمدة ${months} شهر مقابل ${amount} ريال؟`,
+    onConfirm: () => {
+      DB.createAiSubRequest({ client_num: this.client.num, months, amount });
+      UI.toast('تم إرسال الطلب للإدارة', 'success');
+      document.getElementById('ft-modal').remove();
+    }
+  });
+},
 
   // دالة استخراج البيانات وتلخيصها
   buildDataContext() {
