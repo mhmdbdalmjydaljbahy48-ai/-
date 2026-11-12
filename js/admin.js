@@ -92,11 +92,14 @@ const Admin = {
     const reqs = DB.pendingSubRequests();
     document.getElementById('pendingList').innerHTML = reqs.length ? reqs.map(r => {
       const c = DB.findClient(r.client_num);
-      return `<div class="flex-between mb-2" style="padding:10px;border-bottom:1px solid var(--border-2)">
-        <div><b>${c ? UI.esc(c.name) : 'غير معروف'}</b> (${r.client_num}) - ${r.months} شهر - ${UI.fmtNum(r.amount)}
+      const isAi = r.type === 'ai';
+      const color = isAi ? '#3B82F6' : 'var(--amber)';
+      const label = isAi ? '🤖 بوت' : '📄 نظام';
+      return `<div class="flex-between mb-2" style="padding:10px;border-bottom:1px solid var(--border-2); background: ${isAi ? 'rgba(59,130,246,0.1)' : 'transparent'}">
+        <div><b>${c ? UI.esc(c.name) : 'غير معروف'}</b> (${r.client_num}) - <span style="color:${color}">${label}</span> - ${r.months} شهر - ${UI.fmtNum(r.amount)}
         ${r.note ? `<br><small class="text-muted">📝 ${UI.esc(r.note)}</small>` : ''}</div>
         <div class="flex gap-2">
-          <button class="btn btn-sm btn-primary" onclick="Admin.approve(${r.req_id})">✅ تفعيل</button>
+          <button class="btn btn-sm btn-primary" style="background:${color}" onclick="Admin.approve(${r.req_id})">✅ تفعيل</button>
           <button class="btn btn-sm btn-danger" onclick="Admin.reject(${r.req_id})">❌ رفض</button>
         </div>
       </div>`;
@@ -153,7 +156,30 @@ const Admin = {
   },
 
   approve(id) {
-    try { DB.approveSubRequest(id, this.client.num); UI.toast('✅ تم التفعيل', 'success'); this.render(); }
+    try {
+      const req = DB.getSubRequests().find(r => r.req_id === id);
+      if(req && req.type === 'ai') {
+         // موافقة على طلب البوت
+         DB.grantAiSubscription(req.client_num, { months: req.months });
+         const c = DB.findClient(req.client_num);
+         DB.updateClient(req.client_num, { money: (c.money || 0) + req.amount });
+         
+         const reqs = DB.getSubRequests();
+         const idx = reqs.findIndex(r => r.req_id === Number(id));
+         if(idx > -1) {
+           reqs[idx].status = 'APPROVED';
+           reqs[idx].decided_at = DB.now();
+           reqs[idx].decided_by = this.client.num;
+           DB.set('sub_requests', reqs);
+           DB.cloudSync('sub_requests', id, reqs[idx]);
+         }
+         DB.addNotification(req.client_num, '✅ تم تفعيل اشتراك البوت', `تم تفعيل اشتراك المحلل الذكي لمدة ${req.months} شهر.`, 'blue');
+      } else {
+         // موافقة على طلب النظام العادي
+         DB.approveSubRequest(id, this.client.num); 
+      }
+      UI.toast('✅ تم التفعيل', 'success'); this.render();
+    }
     catch(e) { UI.toast(e.message, 'error'); }
   },
   reject(id) {
@@ -204,6 +230,10 @@ const Admin = {
           <button class="btn btn-outline" data-act="toggle">${st.blocked ? '✅ تفعيل' : '⛔ إيقاف'}</button>
           <button class="btn btn-outline" data-act="expire">🚫 تصفير اشتراك</button>
           
+          <!-- ✅ أزرار البوت الجديدة -->
+          <button class="btn btn-outline" data-act="ai_extend" style="border-color: #3B82F6; color: #3B82F6;">🤖 تمديد بوت</button>
+          <button class="btn btn-outline" data-act="ai_reset" style="border-color: #3B82F6; color: #3B82F6;">🚫 تصفير بوت</button>
+
           <!-- ✅ زر التواصل الأزرق هنا -->
           <button class="btn btn-outline" data-act="contact" style="grid-column:span 2; border-color: #3B82F6; color: #3B82F6;">📞 التواصل مع العميل</button>
 
@@ -219,6 +249,8 @@ const Admin = {
             else if (act === 'edit') this.editUser(num);
             else if (act === 'toggle') this.toggleUser(num);
             else if (act === 'expire') this.expireUser(num);
+            else if (act === 'ai_extend') this.extendAi(num);
+            else if (act === 'ai_reset') this.resetAi(num);
             else if (act === 'contact') this.contactClient(num);
             else if (act === 'reset') this.resetUser(num);
             else if (act === 'delete') this.deleteUser(num);
@@ -259,6 +291,34 @@ const Admin = {
     });
   },
 
+  // ✅ الدالة الجديدة لتمديد البوت
+  extendAi(num) {
+    UI.modal({
+      title: 'تمديد اشتراك المحلل الذكي',
+      content: `
+        <div class="form-group"><label class="form-label">عدد الأشهر</label>
+          <input class="form-input" type="number" id="extAiMonths" value="1" min="1"></div>
+        <button class="btn btn-primary btn-block" id="btnExtAi" style="background:#3B82F6; border-color:#3B82F6">تمديد البوت</button>`,
+      onOpen: (el, close) => {
+        el.querySelector('#btnExtAi').onclick = () => {
+          const v = Number(el.querySelector('#extAiMonths').value);
+          if (v <= 0) return UI.toast('أدخل عدداً صحيحاً', 'error');
+          DB.grantAiSubscription(num, { months: v });
+          DB.addNotification(num, '🤖 تمديد البوت', `تم تمديد اشتراك المحلل الذكي بمقدار ${v} شهر.`, 'blue');
+          UI.toast('✅ تم التمديد', 'success'); close(); this.render();
+        };
+      }
+    });
+  },
+
+  // ✅ الدالة الجديدة لتصفير البوت
+  resetAi(num) {
+    UI.confirm({ title: 'تصفير البوت', message: 'سيتم إيقاف اشتراك البوت فوراً. متابعة؟', danger: true, onConfirm: () => {
+      DB.resetAiSubscription(num);
+      UI.toast('✅ تم تصفير البوت', 'success'); this.render();
+    }});
+  },
+
   // ✅ الدالة الجديدة للتواصل مع العميل
   contactClient(num) {
     const c = DB.findClient(num);
@@ -273,6 +333,7 @@ const Admin = {
             <option value="green" style="color:var(--success)">🟢 أخضر: تنبيه ليس مهم</option>
             <option value="yellow" style="color:var(--amber)">🟡 أصفر: تنبيه لازم قراءته (يمكن يكون مهم)</option>
             <option value="red" style="color:var(--danger)">🔴 أحمر: تنبيه مهم جداً (يجب عليك قراءته)</option>
+            <option value="blue" style="color:#3B82F6">🔵 أزرق: إشعار خاص بالبوت/الاشتراكات</option>
           </select>
         </div>
         <div class="form-group">
@@ -289,6 +350,7 @@ const Admin = {
           if (type === 'green') typeText = 'تنبيه ليس مهم';
           else if (type === 'yellow') typeText = 'تنبيه لازم قراءته يمكن يكون مهم';
           else if (type === 'red') typeText = 'تنبيه مهم جدا يجب عليك قراءته';
+          else if (type === 'blue') typeText = 'إشعار من الإدارة بخصوص البوت';
 
           let fullBody = typeText;
           if (customMsg) fullBody += `\n\n${customMsg}`;
@@ -437,14 +499,18 @@ const Admin = {
 
   loadSettings() {
     document.getElementById('setPrice').value = DB.getSettings().month_price || 0;
+    document.getElementById('setAiPrice').value = DB.getSettings().ai_month_price || 0;
     const r = DB.getRates();
     document.getElementById('setUsd').value = r.usd || 0;
     document.getElementById('setSar').value = r.sar || 0;
   },
   savePrice() {
-    DB.updateSettings({ month_price: Number(document.getElementById('setPrice').value) });
-    DB.logAudit('ADMIN_PRICE', null, `price=${document.getElementById('setPrice').value}`);
-    UI.toast('✅ تم حفظ السعر', 'success');
+    DB.updateSettings({ 
+      month_price: Number(document.getElementById('setPrice').value),
+      ai_month_price: Number(document.getElementById('setAiPrice').value)
+    });
+    DB.logAudit('ADMIN_PRICE', null, `price=${document.getElementById('setPrice').value}, ai_price=${document.getElementById('setAiPrice').value}`);
+    UI.toast('✅ تم حفظ الأسعار', 'success');
   },
   saveRates() {
     DB.setRates({ usd: Number(document.getElementById('setUsd').value), sar: Number(document.getElementById('setSar').value) });
