@@ -69,8 +69,8 @@ const DB = (() => {
         let query = firestore.collection(col);
         const userEmail = firebase.auth().currentUser ? firebase.auth().currentUser.email : '';
         if (userEmail !== 'mhmdbdalmjydaljbahy48@gmail.com') {
-        if (col !== 'pending_clients' && col !== 'settings' && col !== 'rates' && col !== 'notifications') {
-            query = query.where('userId', '==', uid);
+        if (col !== 'pending_clients' && col !== 'settings' && col !== 'rates' && col !== 'notifications' && col !== 'clients') {
+    query = query.where('userId', '==', uid);
         }
             }
         
