@@ -255,6 +255,7 @@ const Admin = {
             else if (act === 'contact') this.contactClient(num);
             else if (act === 'reset') this.resetUser(num);
             else if (act === 'delete') this.deleteUser(num);
+            else if (act === 'check') this.checkClientDetails(num);
           };
         });
       }
