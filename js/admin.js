@@ -497,6 +497,70 @@ const Admin = {
     document.getElementById('broadcastBody').value = '';
   },
 
+
+  // دالة فحص اشتراك العميل
+checkClientDetails(num) {
+  const c = DB.findClient(num);
+  if (!c) return;
+  const sysSub = DB.subscriptionStatus(c);
+  const aiSub = DB.getAiSubscriptionStatus(c);
+  
+  const isAiFree = c.ai_trial_used && c.ai_subscription_months <= 1;
+  const aiType = c.ai_trial_used ? (isAiFree ? 'مجاني (تجربة)' : 'مدفوع/مختلط') : (c.ai_expiry_date ? 'مدفوع' : 'لا يوجد');
+  
+  UI.modal({
+    title: `🔍 تقرير اشتراكات: ${UI.esc(c.name)}`,
+    content: `
+      <div class="card mb-3" style="background:var(--bg-3)">
+        <h4 class="text-amber mb-2">📄 اشتراك النظام</h4>
+        <div class="flex-between mb-1"><span>إجمالي المدفوع:</span><b>${UI.fmtNum(c.money || 0)}</b></div>
+        <div class="flex-between mb-1"><span>تاريخ البداية:</span><b>${UI.fmtDate(c.start_date || c.created_at)}</b></div>
+        <div class="flex-between mb-1"><span>عدد الأشهر:</span><b>${c.subscription_months || 0} شهر</b></div>
+        <div class="flex-between mb-1"><span>الوقت المتبقي:</span><b style="color:${sysSub.ok ? 'var(--success)' : 'var(--danger)'}">${UI.fmtRemaining(c.expiry_date)}</b></div>
+      </div>
+      <div class="card" style="background:var(--bg-3); border:1px solid #3B82F6">
+        <h4 style="color:#60A5FA" class="mb-2">🤖 اشتراك المحلل الذكي (البوت)</h4>
+        <div class="flex-between mb-1"><span>نوع الاشتراك:</span><b style="color:#60A5FA">${aiType}</b></div>
+        <div class="flex-between mb-1"><span>عدد الأشهر:</span><b>${c.ai_subscription_months || 0} شهر</b></div>
+        <div class="flex-between mb-1"><span>الوقت المتبقي:</span><b style="color:${aiSub.ok ? 'var(--success)' : 'var(--danger)'}">${c.ai_expiry_date ? UI.fmtRemaining(c.ai_expiry_date) : 'غير مشترك'}</b></div>
+      </div>
+    `
+  });
+},
+
+// تصفير المجانيين
+massReset(type) {
+  const typeName = type === 'main' ? 'النظام' : 'البوت';
+  UI.modal({
+    title: `⚠️ تصفير الاشتراكات المجانية (${typeName})`,
+    content: `
+      <p class="text-muted mb-2">سيتم تصفير جميع الحسابات التي تستخدم الفترة المجانية، <b>ما عدا</b> الأرقام التي تكتبها في المربع أدناه.</p>
+      <div class="form-group">
+        <label class="form-label">استثناء أرقام (افصل بينها بفاصلة ,)</label>
+        <input class="form-input" id="excludeNums" placeholder="مثال: 770712071, 11223344">
+      </div>
+      <button class="btn btn-danger btn-block" id="btnMassReset">تأكيد التصفير</button>
+    `,
+    onOpen: (el, close) => {
+      el.querySelector('#btnMassReset').onclick = () => {
+        const excText = el.querySelector('#excludeNums').value;
+        const excNums = excText.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n));
+        
+        UI.confirm({ 
+          title: 'تأكيد نهائي', message: 'هل أنت متأكد؟ لا يمكن التراجع!', danger: true, onConfirm: () => {
+            DB.massResetFree(type, excNums);
+            UI.toast('✅ تم تصفير الاشتراكات المجانية بنجاح', 'success');
+            close();
+            this.render();
+          }
+        });
+      };
+    }
+  });
+},
+
+  
+
   loadSettings() {
     document.getElementById('setPrice').value = DB.getSettings().month_price || 0;
     document.getElementById('setAiPrice').value = DB.getSettings().ai_month_price || 0;
