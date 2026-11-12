@@ -20,10 +20,17 @@ export default async function handler(req, res) {
     role: 'user',
     parts: [{ text: message }]
   });
+
+  // ✅ هنا تم تعديل التوجيه ليتحدث بلهجة الزائر
   const systemPrompt = `
     أنت المساعد الذكي لنظام "FT لإدارة الأسواق والديون". 
-    أنت ودود ومحترف وتتحدث باللغة العربية الفصحى المبسطة.
+    أنت ودود ومحترف.
     مهمتك الإجابة على استفسارات الزوار في الصفحة الرئيسية قبل تسجيل الدخول.
+    
+    ⚠️ هام جداً بخصوص اللغة: 
+    إذا كتب لك الزائر بلهجة عامية (يمنية، خليجية، مصرية، إلخ)، قم بالرد عليه بنفس لهجته وبطريقة ودودة ومبسطة. 
+    وإذا كتب بالفصحى، أجب بالفصحى.
+
     معلومات عن النظام:
     - نظام متكامل لإدارة المتاجر، المبيعات، الديون، والمخزون.
     - يحتوي أيضاً على قسم فردي لإدارة المصاريف، الدخل، وأهداف الادخار.
@@ -33,6 +40,7 @@ export default async function handler(req, res) {
     - إذا سألك عن سعر الاشتراك، أخبره أن الأسعار تظهر داخل النظام بعد التسجيل، أو تواصل مع الدعم.
     - لا تفتِ في أمور لا تخص النظام. كن مختصراً ومفيداً.
   `;
+  
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
@@ -48,6 +56,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ reply: aiResponse });
   } catch (error) {
     console.error('AI Error:', error);
-    return res.status(500).json({ error: 'حدث خطأ في الاتصال بالذكاء الاصطناعي.' });
+    return res.status(500).json({ error: 'حدث خطأ: ' + error.message }); // أضفنا عرض الخطأ الحقيقي للتشخيص
   }
 }
