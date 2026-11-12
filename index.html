@@ -275,7 +275,10 @@
 <div class="ai-chat-window" id="aiChatWindow">
   <div class="ai-chat-header">
     <h4>🤖 مساعد FT</h4>
-    <button class="ai-chat-close" id="aiChatClose"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+    <div style="display:flex; gap:8px; align-items:center;">
+  <button class="ai-chat-close" id="aiChatMinimize" title="تصغير" style="color:var(--text-2)"><i data-lucide="minus" style="width:20px;height:20px;"></i></button>
+  <button class="ai-chat-close" id="aiChatClose" title="إغلاق ومسح المحادثة" style="color:var(--danger)"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+    </div>
   </div>
   <div class="ai-chat-messages" id="aiChatMessages">
     <div class="ai-msg model">مرحباً بك في نظام FT! كيف يمكنني مساعدتك اليوم؟ يمكنك سؤالي عن الميزات، الأسعار، أو كيفية التسجيل.</div>
@@ -290,14 +293,38 @@
   document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('aiChatBtn');
     const win = document.getElementById('aiChatWindow');
-    const close = document.getElementById('aiChatClose');
+
+const closeBtn = document.getElementById('aiChatClose');
+const minimizeBtn = document.getElementById('aiChatMinimize');
+
+// 1. زر الفتح (الروبوت)
+btn.onclick = () => { 
+  win.style.display = 'flex'; 
+  btn.style.display = 'none'; 
+  input.focus(); 
+  setTimeout(() => messages.scrollTop = messages.scrollHeight, 100);
+};
+
+// 2. زر التصغير (-): يخفي النافذة ويحتفظ بالمحادثة
+minimizeBtn.onclick = () => { 
+  win.style.display = 'none'; 
+  btn.style.display = 'grid'; 
+};
+
+// 3. زر الإغلاق (X): يخفي النافذة ويمسح المحادثة ليبدأ العميل من جديد
+closeBtn.onclick = () => { 
+  win.style.display = 'none'; 
+  btn.style.display = 'grid'; 
+  chatHistory = []; // مسح الذاكرة
+  messages.innerHTML = `<div class="ai-msg model">مرحباً بك في نظام FT! كيف يمكنني مساعدتك اليوم؟ يمكنك سؤالي عن الميزات، الأسعار، أو كيفية التسجيل.</div>`; // إعادة رسالة الترحيب
+};
+    
     const input = document.getElementById('aiChatInput');
     const sendBtn = document.getElementById('aiChatSend');
     const messages = document.getElementById('aiChatMessages');
     let chatHistory = [];
     let isTyping = false;
-    btn.onclick = () => { win.style.display = 'flex'; btn.style.display = 'none'; input.focus(); };
-    close.onclick = () => { win.style.display = 'none'; btn.style.display = 'grid'; };
+
     async function sendMessage() {
       const text = input.value.trim();
       if (!text || isTyping) return;
