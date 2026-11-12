@@ -229,10 +229,11 @@ speakText(text) {
       if (loadingEl) loadingEl.remove();
 
       if (data.reply) {
-        messages.innerHTML += `<div class="msg model">${data.reply}</div>`;
-        this.history.push({ role: 'model', text: data.reply });
-      } else {
-        messages.innerHTML += `<div class="msg model" style="color:var(--danger)">${data.error || 'حدث خطأ غير معروف'}</div>`;
+  messages.innerHTML += `<div class="msg model">${data.reply}</div>`;
+  this.history.push({ role: 'model', text: data.reply });
+  this.speakText(data.reply); // 🔊 ✅ هذا هو السطر الناقص الذي يقرأ الرد بصوت
+} else {
+  messages.innerHTML += `<div class="msg model" style="color:var(--danger)">${data.error || 'حدث خطأ غير معروف'}</div>`;
       }
     } catch (e) {
       const loadingEl = document.getElementById(loadId);
