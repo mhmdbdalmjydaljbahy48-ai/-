@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>المحلل الذكي — ✨️ FT</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .chat-container { display: flex; flex-direction: column; height: calc(100vh - 150px); background: var(--bg-2); border-radius: var(--radius-lg); border: 1px solid var(--border); overflow: hidden; }
+    .chat-header { background: var(--bg-3); padding: 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+    .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+    .msg { max-width: 85%; padding: 14px 18px; border-radius: 16px; line-height: 1.6; font-size: 0.95rem; }
+    .msg.user { background: var(--amber); color: #000; align-self: flex-end; border-bottom-left-radius: 4px; }
+    .msg.model { background: var(--bg-3); color: var(--text); align-self: flex-start; border-bottom-right-radius: 4px; border: 1px solid var(--border-2); white-space: pre-wrap; }
+    .chat-input-area { padding: 16px; border-top: 1px solid var(--border); display: flex; gap: 12px; background: var(--bg-elevated); }
+    .chat-input-area input { flex: 1; padding: 14px 20px; border-radius: 999px; border: 1px solid var(--border-2); background: var(--bg-2); color: var(--text); }
+    .chat-input-area button { width: 50px; height: 50px; border-radius: 50%; background: var(--amber); border: none; cursor: pointer; color: #000; display: grid; place-items: center; transition: 0.3s; }
+    .chat-input-area button:hover { transform: scale(1.05); }
+  </style>
+</head>
+<body>
+  <canvas id="golden-particles"></canvas>
+  <aside class="sidebar">
+    <div class="sidebar-brand"><div class="sidebar-logo">✨</div><div><div class="sidebar-title">FT</div><div class="sidebar-sub">المحلل الذكي</div></div></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-link"><i data-lucide="home"></i> الرئيسية</a>
+      <a href="shop.html" class="nav-link"><i data-lucide="shopping-cart"></i> المتجر</a>
+      <a href="personal.html" class="nav-link"><i data-lucide="user"></i> القسم الفردي</a>
+      <a href="ai-assistant.html" class="nav-link active"><i data-lucide="bot"></i> المحلل الذكي</a>
+      <a href="subscription.html" class="nav-link"><i data-lucide="star"></i> اشتراكي</a>
+      <a href="support.html" class="nav-link"><i data-lucide="headphones"></i> الدعم</a>
+      <a href="admin.html" class="nav-link" data-admin-only style="display:none"><i data-lucide="shield"></i> لوحة الإدارة</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card"><div class="user-avatar" id="userAvatar">?</div><div style="min-width:0;flex:1"><div class="user-name" id="userName">—</div><div class="user-role" id="userRole">—</div></div></div>
+      <button class="btn btn-ghost btn-block btn-sm" data-logout><i data-lucide="log-out"></i> خروج</button>
+    </div>
+  </aside>
+  <div class="sidebar-backdrop"></div>
+  <header class="topbar">
+    <div class="flex" style="align-items:center;gap:12px"><button class="hamburger"><i data-lucide="menu"></i></button><div class="topbar-title">🤖 المحلل الذكي</div></div>
+    <div class="topbar-actions"><button class="icon-btn" data-theme-toggle><i data-lucide="sun-moon"></i></button></div>
+  </header>
+
+  <main class="main-content">
+    <div class="container">
+      <div class="chat-container">
+        <div class="chat-header">
+          <div class="feature-icon" style="width:40px;height:40px;margin:0;font-size:1.2rem"><i data-lucide="bot"></i></div>
+          <div>
+            <h3 style="margin:0;font-size:1.1rem">مساعدك التجاري الذكي</h3>
+            <small class="text-muted">اسألني عن مبيعاتك، ديونك، مصاريفك، أو أي تحليل تريده!</small>
+          </div>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="msg model">مرحباً بك! أنا المحلل الذكي الخاص بمتجرك. لقد قمت بقراءة بياناتك. يمكنك سؤالي مثلاً: "كم بعت اليوم؟"، "ما هو المنتج الأكثر مبيعاً؟"، أو "كم إجمالي ديوني؟".</div>
+        </div>
+        <div class="chat-input-area">
+          <input type="text" id="chatInput" placeholder="اكتب سؤالك هنا..." autocomplete="off">
+          <button id="chatSend"><i data-lucide="send"></i></button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/db2.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/ai-assistant.js"></script>
+</body>
+</html>
