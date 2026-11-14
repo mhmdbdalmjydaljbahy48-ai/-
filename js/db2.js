@@ -1378,6 +1378,8 @@ function clearNotifications(clientNum) {
      addNotification, getNotifications, markAllNotificationsRead,
 deleteNotification, clearNotifications, // ✅ تمت الإضافة هنا
 addPaymentProof, getPaymentProofs,deleteOldInvoices,
+     createSubRequest, getSubRequests, pendingSubRequests, approveSubRequest,
+rejectSubRequest, cancelSubRequest, grantSubscription,
   };
 })();
 
