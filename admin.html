@@ -50,6 +50,14 @@
 
       <div class="tab-content active" id="tab-home">
   <div class="grid-3" id="statsGrid"></div>
+  
+  <!-- ✅ زر حذف الفواتير القديمة (للإدارة) -->
+  <div class="card mt-4" style="border: 1px solid var(--danger); background: rgba(239,68,68,0.05)">
+    <h3 class="card-title text-danger">⚠️ تنظيف قاعدة البيانات</h3>
+    <button class="btn btn-danger btn-block" onclick="Admin.showDeleteOldInvoicesMenu()" style="background: #dc3545; color: white; padding: 12px; font-weight: bold;">
+      🗑️ حذف الفواتير القديمة (لجميع العملاء)
+    </button>
+  </div>
       </div>
 
       <div class="tab-content" id="tab-pending">
