@@ -262,35 +262,45 @@ const Admin = {
   },
 
   extend(num) {
-    UI.modal({
-      title: 'تمديد اشتراك',
-      content: `
-        <div class="form-group"><label class="form-label">الوحدة</label>
-          <select class="form-select" id="extUnit">
-            <option value="months">📅 شهر</option><option value="days">📆 يوم</option>
-            <option value="hours">⏰ ساعة</option><option value="minutes">⏱ دقيقة</option>
-          </select></div>
-        <div class="form-group"><label class="form-label">العدد</label>
-          <input class="form-input" type="number" id="extAmount" value="1" min="1"></div>
-        <div class="form-group"><label class="form-label">المبلغ المدفوع (اختياري)</label>
-          <input class="form-input" type="number" id="extPaid" value="0" min="0"></div>
-        <button class="btn btn-primary btn-block" id="btnExt">تمديد</button>`,
-      onOpen: (el, close) => {
-        el.querySelector('#btnExt').onclick = () => {
-          const unit = el.querySelector('#extUnit').value;
-          const v = Number(el.querySelector('#extAmount').value);
-          const amt = Number(el.querySelector('#extPaid').value) || 0;
-          if (v <= 0) return UI.toast('أدخل عدداً صحيحاً', 'error');
-          try {
-            DB.grantSubscription(num, { [unit]: v, amount: amt, resetMonthsIfExpired: false });
-            DB.logAudit('ADMIN_EXTEND', num, `+${v} ${unit} paid=${amt}`);
-            DB.addNotification(num, '✅ تمديد اشتراك', `تم تمديد اشتراكك بمقدار ${v} ${unit}.`, 'green');
-            UI.toast('✅ تم التمديد', 'success'); close(); this.render();
-          } catch(e) { UI.toast(e.message, 'error'); }
-        };
-      }
-    });
-  },
+  UI.modal({
+    title: 'تمديد اشتراك (صفحة جديدة)',
+    content: `
+      <div class="form-group"><label class="form-label">الوحدة</label>
+        <select class="form-select" id="extUnit">
+          <option value="months">📅 شهر</option><option value="days">📆 يوم</option>
+          <option value="hours">⏰ ساعة</option><option value="minutes">⏱ دقيقة</option>
+        </select></div>
+      <div class="form-group"><label class="form-label">العدد</label>
+        <input class="form-input" type="number" id="extAmount" value="1" min="1"></div>
+      
+      <!-- ✅ حقل المبلغ الإجمالي -->
+      <div class="form-group"><label class="form-label">المبلغ الإجمالي المطلوب</label>
+        <input class="form-input" type="number" id="extTotalCost" value="0" min="0"></div>
+
+      <div class="form-group"><label class="form-label">المبلغ المدفوع الآن</label>
+        <input class="form-input" type="number" id="extPaid" value="0" min="0"></div>
+        
+      <button class="btn btn-primary btn-block" id="btnExt">حفظ الاشتراك</button>`,
+    onOpen: (el, close) => {
+      el.querySelector('#btnExt').onclick = () => {
+        const unit = el.querySelector('#extUnit').value;
+        const v = Number(el.querySelector('#extAmount').value);
+        const total = Number(el.querySelector('#extTotalCost').value) || 0;
+        const amt = Number(el.querySelector('#extPaid').value) || 0;
+        
+        if (v <= 0) return UI.toast('أدخل عدداً صحيحاً', 'error');
+        if (amt > total) return UI.toast('المدفوع لا يمكن أن يكون أكبر من الإجمالي', 'error');
+        
+        try {
+          DB.grantSubscription(num, { [unit]: v, amount: amt, totalCost: total, resetMonthsIfExpired: false });
+          DB.logAudit('ADMIN_EXTEND', num, `+${v} ${unit} total=${total} paid=${amt}`);
+          DB.addNotification(num, '✅ تمديد اشتراك', `تم تمديد اشتراكك بمقدار ${v} ${unit}.`, 'green');
+          UI.toast('✅ تم حفظ الاشتراك الجديد', 'success'); close(); this.render();
+        } catch(e) { UI.toast(e.message, 'error'); }
+      };
+    }
+  });
+},
 
   extendAi(num) {
     UI.modal({
