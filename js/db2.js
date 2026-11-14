@@ -1339,7 +1339,7 @@ function clearNotifications(clientNum) {
     getAiSubscriptionStatus, requestAiTrial, createAiSubRequest, grantAiSubscription, resetAiSubscription,massResetFree,
      addNotification, getNotifications, markAllNotificationsRead,
 deleteNotification, clearNotifications, // ✅ تمت الإضافة هنا
-addPaymentProof, getPaymentProofs,
+addPaymentProof, getPaymentProofs,deleteOldInvoices,
   };
 })();
 
