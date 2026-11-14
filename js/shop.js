@@ -30,6 +30,7 @@ const Shop = {
     this.loadDebtCustomers();
     this.renderRecentInvoices();
     this.updateCalcRates();
+    this.renderInvoicesLog();
   },
 
 // 1. عرض قائمة الفواتير
