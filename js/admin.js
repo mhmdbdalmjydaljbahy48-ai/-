@@ -573,8 +573,10 @@ const Admin = {
     const sysMonthPrice = DB.getSettings().month_price || 0;
     const aiMonthPrice = DB.getSettings().ai_month_price || 0;
     
-    let sysRemainingMoney = 0;
-    if (sysSub.ok && sysSub.days !== null) sysRemainingMoney = (sysSub.days / 30) * sysMonthPrice;
+    // ✅ قراءة المتبقي الحقيقي للاشتراك الحالي
+let sysRemainingMoney = c.current_sub_remaining || 0;
+let sysTotalCost = c.current_sub_total || 0;
+let sysPaidAmount = c.current_sub_paid || 0;
     
     let aiRemainingMoney = 0;
     if (aiSub.ok && aiSub.days !== null) aiRemainingMoney = (aiSub.days / 30) * aiMonthPrice;
