@@ -1086,6 +1086,42 @@ function clearNotifications(clientNum) {
   toDelete.forEach(n => cloudSync('notifications', n.id, null));
   set(KEYS.notifications, arr.filter(n => Number(n.client_num) !== Number(clientNum)));
 }
+
+
+   function deleteOldInvoices(timeframe, isAdmin, clientNum) {
+  const now = new Date();
+  let cutoff = new Date();
+  
+  // تحديد التاريخ المطلوب الحذف قبله
+  if (timeframe === '24h') cutoff.setHours(now.getHours() - 24);
+  else if (timeframe === '7d') cutoff.setDate(now.getDate() - 7);
+  else if (timeframe === '30d') cutoff.setMonth(now.getMonth() - 1);
+
+  let deletedCount = 0;
+  const tables = ['cash_sales', 'network_sales', 'shop_debts'];
+
+  tables.forEach(table => {
+    const all = get(table, []);
+    const toKeep = [];
+    
+    all.forEach(s => {
+      const saleDate = new Date(s.sale_date || s.debt_date);
+      // هل الفاتورة تابعة لهذا العميل؟ (أو هل أنا المدير؟)
+      const isTarget = isAdmin || Number(s.client_num) === Number(clientNum);
+      
+      if (isTarget && saleDate < cutoff) {
+        const id = s.sale_id || s.debt_id;
+        if (id) cloudSync(table, id, null); // حذف من السحابة
+        deletedCount++;
+      } else {
+        toKeep.push(s);
+      }
+    });
+    set(table, toKeep); // تحديث الذاكرة المحلية
+  });
+  return deletedCount;
+   }
+   
    
 
   function addPaymentProof(reqId, clientNum, content) {
