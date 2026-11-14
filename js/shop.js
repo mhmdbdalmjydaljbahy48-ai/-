@@ -198,6 +198,41 @@ deleteAllInvoices() {
     }
   });
 },
+
+
+
+  showDeleteOldInvoicesMenu() {
+  UI.modal({
+    title: '🗑️ حذف فواتيري القديمة',
+    content: `
+      <p class="mb-4 text-muted">اختر الفترة الزمنية لحذف فواتيرك الأقدم منها (لتوفير مساحة جهازك):</p>
+      <div class="flex gap-2" style="flex-direction: column;">
+        <button class="btn btn-block" onclick="Shop.confirmDeleteOldInvoices('30d')" style="background:#10B981; color:white; font-weight:bold;">🟢 حذف الأقدم من شهر</button>
+        <button class="btn btn-block" onclick="Shop.confirmDeleteOldInvoices('7d')" style="background:#F59E0B; color:white; font-weight:bold;">🟡 حذف الأقدم من أسبوع</button>
+        <button class="btn btn-block" onclick="Shop.confirmDeleteOldInvoices('24h')" style="background:#EF4444; color:white; font-weight:bold;">🔴 حذف الأقدم من 24 ساعة</button>
+      </div>
+    `
+  });
+},
+
+confirmDeleteOldInvoices(timeframe) {
+  const label = timeframe === '30d' ? 'شهر' : timeframe === '7d' ? 'أسبوع' : '24 ساعة';
+  UI.confirm({
+    title: 'تأكيد الحذف',
+    message: `هل أنت متأكد من حذف جميع فواتيرك الأقدم من ${label}؟ لا يمكن التراجع!`,
+    danger: true,
+    onConfirm: () => {
+      const count = DB.deleteOldInvoices(timeframe, false, this.client.num);
+      UI.toast(`🗑️ تم حذف ${count} فاتورة بنجاح`, 'success');
+      document.getElementById('ft-modal').remove();
+      this.renderInvoicesLog(); // تحديث السجل
+    }
+  });
+},
+
+
+
+
   
   // ═══════════════════════════════════════════════════════════
   //                    دوال الباركود
