@@ -302,6 +302,7 @@ const Admin = {
           const v = Number(el.querySelector('#extAiMonths').value);
           if (v <= 0) return UI.toast('أدخل عدداً صحيحاً', 'error');
           DB.grantAiSubscription(num, { months: v });
+          DB.logAudit('ADMIN_EXTEND_AI', num, `+${v} months`);
           DB.addNotification(num, '🤖 تمديد البوت', `تم تمديد اشتراك المحلل الذكي بمقدار ${v} شهر.`, 'blue');
           UI.toast('✅ تم التمديد', 'success'); close(); this.render();
         };
