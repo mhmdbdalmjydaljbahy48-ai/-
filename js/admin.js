@@ -72,7 +72,7 @@ const Admin = {
         </div>
         <div class="flex gap-2">
           <button class="btn btn-sm btn-primary" onclick="Admin.approveReg(${c.num})">✅ موافقة</button>
-          <button class="btn btn-sm btn-danger" onclick="Admin.rejectReg(${c.num})">❌ رفض</button>
+          <button class="btn btn-sm btn-danger" onclick="Admin.reject(${r.req_id})">❌ رفض</button>
         </div>
       </div>`).join('') : '<p class="text-muted">لا طلبات تسجيل حالياً</p>';
 
