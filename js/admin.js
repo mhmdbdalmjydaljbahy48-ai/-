@@ -72,7 +72,8 @@ const Admin = {
         </div>
         <div class="flex gap-2">
           <button class="btn btn-sm btn-primary" onclick="Admin.approveReg(${c.num})">✅ موافقة</button>
-          <button class="btn btn-sm btn-danger" onclick="Admin.reject(${r.req_id})">❌ رفض</button>
+          <!-- ✅ إصلاح الخطأ: كان يرسل r.req_id وهو غير موجود هنا -->
+          <button class="btn btn-sm btn-danger" onclick="Admin.rejectReg(${c.num})">❌ رفض</button>
         </div>
       </div>`).join('') : '<p class="text-muted">لا طلبات تسجيل حالياً</p>';
 
@@ -156,93 +157,89 @@ const Admin = {
   },
 
   approve(id) {
-  const req = DB.getSubRequests().find(r => r.req_id === Number(id));
-  if (!req) return UI.toast('الطلب غير موجود', 'error');
-  
-  const c = DB.findClient(req.client_num);
-  if (!c) return UI.toast('العميل غير موجود', 'error');
-
-  const isAi = req.type === 'ai';
-  const typeName = isAi ? 'البوت' : 'النظام';
-  const totalAmount = Number(req.amount) || 0;
-
-  UI.modal({
-    title: `✅ قبول طلب تجديد (${typeName})`,
-    content: `
-      <div class="card mb-3" style="background:var(--bg-3); padding:15px;">
-        <div class="flex-between mb-2"><span>العميل:</span><b>${UI.esc(c.name)}</b></div>
-        <div class="flex-between mb-2"><span>المدة المطلوبة:</span><b>${req.months} شهر</b></div>
-        <div class="flex-between mb-2"><span>المبلغ الإجمالي للفاتورة:</span><b style="color:var(--amber)">${UI.fmtNum(totalAmount)}</b></div>
-        
-        <div class="form-group mt-3">
-          <label class="form-label" style="color:var(--success)">المبلغ الذي دفعه العميل (الآن)</label>
-          <input class="form-input" type="number" id="appPaidAmount" value="${totalAmount}" min="0">
-        </div>
-        
-        <button class="btn btn-primary btn-block" id="btnConfirmApprove" style="background:${isAi ? '#3B82F6' : 'var(--amber)'}">تأكيد القبول والتفعيل</button>
-      </div>
-    `,
-
-    reject(id) {
-  UI.confirm({
-    title: '❌ تأكيد رفض الطلب',
-    message: 'هل أنت متأكد من رفض هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.',
-    danger: true,
-    onConfirm: () => {
-      try { 
-        DB.rejectSubRequest(id, this.client.num); 
-        UI.toast('✅ تم رفض الطلب بنجاح', 'success'); 
-        this.render(); 
-      }
-      catch(e) { 
-        UI.toast(e.message, 'error'); 
-      }
-    }
-  });
-},
-
+    const req = DB.getSubRequests().find(r => r.req_id === Number(id));
+    if (!req) return UI.toast('الطلب غير موجود', 'error');
     
-    onOpen: (el, close) => {
-      el.querySelector('#btnConfirmApprove').onclick = () => {
-        const paidAmount = Number(el.querySelector('#appPaidAmount').value) || 0;
-        if (paidAmount < 0 || paidAmount > totalAmount) {
-          return UI.toast('المبلغ المدفوع غير صحيح (لا يمكن أن يكون أكبر من الإجمالي)', 'error');
-        }
+    const c = DB.findClient(req.client_num);
+    if (!c) return UI.toast('العميل غير موجود', 'error');
 
-        try {
-          if (isAi) {
-            // موافقة طلب البوت
-            DB.grantAiSubscription(req.client_num, { 
-              months: req.months, 
-              totalCost: totalAmount, 
-              amountPaid: paidAmount 
-            });
-            
-            // تحديث حالة الطلب
-            const reqs = DB.getSubRequests();
-            const idx = reqs.findIndex(r => r.req_id === Number(id));
-            reqs[idx].status = 'APPROVED';
-            reqs[idx].decided_at = DB.now();
-            reqs[idx].decided_by = this.client.num;
-            DB.set('sub_requests', reqs);
-            DB.cloudSync('sub_requests', id, reqs[idx]);
-            
-            DB.addNotification(req.client_num, '✅ تم تفعيل اشتراك البوت', `تم تفعيل اشتراك المحلل الذكي لمدة ${req.months} شهر.`, 'blue');
-          } else {
-            // موافقة طلب النظام (نمرر المبلغ الإجمالي والمدفوع)
-            DB.approveSubRequest(id, this.client.num, totalAmount, paidAmount);
-          }
+    const isAi = req.type === 'ai';
+    const typeName = isAi ? 'البوت' : 'النظام';
+    const totalAmount = Number(req.amount) || 0;
+
+    UI.modal({
+      title: `✅ قبول طلب تجديد (${typeName})`,
+      content: `
+        <div class="card mb-3" style="background:var(--bg-3); padding:15px;">
+          <div class="flex-between mb-2"><span>العميل:</span><b>${UI.esc(c.name)}</b></div>
+          <div class="flex-between mb-2"><span>المدة المطلوبة:</span><b>${req.months} شهر</b></div>
+          <div class="flex-between mb-2"><span>المبلغ الإجمالي للفاتورة:</span><b style="color:var(--amber)">${UI.fmtNum(totalAmount)}</b></div>
           
-          UI.toast('✅ تم التفعيل بنجاح', 'success');
-          close(); 
-          this.render();
-        } catch(e) { 
+          <div class="form-group mt-3">
+            <label class="form-label" style="color:var(--success)">المبلغ الذي دفعه العميل (الآن)</label>
+            <input class="form-input" type="number" id="appPaidAmount" value="${totalAmount}" min="0">
+          </div>
+          
+          <button class="btn btn-primary btn-block" id="btnConfirmApprove" style="background:${isAi ? '#3B82F6' : 'var(--amber)'}">تأكيد القبول والتفعيل</button>
+        </div>
+      `,
+      onOpen: (el, close) => {
+        el.querySelector('#btnConfirmApprove').onclick = () => {
+          const paidAmount = Number(el.querySelector('#appPaidAmount').value) || 0;
+          if (paidAmount < 0 || paidAmount > totalAmount) {
+            return UI.toast('المبلغ المدفوع غير صحيح (لا يمكن أن يكون أكبر من الإجمالي)', 'error');
+          }
+
+          try {
+            if (isAi) {
+              DB.grantAiSubscription(req.client_num, { 
+                months: req.months, 
+                totalCost: totalAmount, 
+                amountPaid: paidAmount 
+              });
+              
+              const reqs = DB.getSubRequests();
+              const idx = reqs.findIndex(r => r.req_id === Number(id));
+              reqs[idx].status = 'APPROVED';
+              reqs[idx].decided_at = DB.now();
+              reqs[idx].decided_by = this.client.num;
+              DB.set('sub_requests', reqs);
+              DB.cloudSync('sub_requests', id, reqs[idx]);
+              
+              DB.addNotification(req.client_num, '✅ تم تفعيل اشتراك البوت', `تم تفعيل اشتراك المحلل الذكي لمدة ${req.months} شهر.`, 'blue');
+            } else {
+              DB.approveSubRequest(id, this.client.num, totalAmount, paidAmount);
+            }
+            
+            UI.toast('✅ تم التفعيل بنجاح', 'success');
+            close(); 
+            this.render();
+          } catch(e) { 
+            UI.toast(e.message, 'error'); 
+          }
+        };
+      }
+    });
+  },
+
+  // ✅ تم إخراج هذه الدالة من داخل دالة approve وإصلاحها هنا
+  reject(id) {
+    UI.confirm({
+      title: '❌ تأكيد رفض الطلب',
+      message: 'هل أنت متأكد من رفض هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.',
+      danger: true,
+      onConfirm: () => {
+        try { 
+          DB.rejectSubRequest(id, this.client.num); 
+          UI.toast('✅ تم رفض الطلب بنجاح', 'success'); 
+          this.render(); 
+        }
+        catch(e) { 
           UI.toast(e.message, 'error'); 
         }
-      };
-    }
-  });
-},
+      }
+    });
+  },
 
   renderUsers() {
     const users = DB.getAllClients();
@@ -291,8 +288,7 @@ const Admin = {
           <button class="btn btn-outline" data-act="ai_reset" style="border-color: #3B82F6; color: #3B82F6;">🚫 تصفير بوت</button>
           
           <button class="btn btn-outline" data-act="check" style="grid-column:span 2; border-color: var(--success); color: var(--success)">🔍 فحص اشتراك العميل</button>
-<!-- ✅ زر تسديد الدفعة الجديد -->
-<button class="btn btn-outline" data-act="pay" style="grid-column:span 2; border-color: #10B981; color: #10B981;">💵 تسديد دفعة (النظام / البوت)</button>
+          <button class="btn btn-outline" data-act="pay" style="grid-column:span 2; border-color: #10B981; color: #10B981;">💵 تسديد دفعة (النظام / البوت)</button>
           <button class="btn btn-outline" data-act="contact" style="grid-column:span 2; border-color: #3B82F6; color: #3B82F6;">📞 التواصل مع العميل</button>
 
           <button class="btn btn-danger" data-act="reset" style="grid-column:span 2">🔄 تصفير البيانات</button>
@@ -321,79 +317,76 @@ const Admin = {
   },
 
   extend(num) {
-  UI.modal({
-    title: 'تمديد اشتراك (صفحة جديدة)',
-    content: `
-      <div class="form-group"><label class="form-label">الوحدة</label>
-        <select class="form-select" id="extUnit">
-          <option value="months">📅 شهر</option><option value="days">📆 يوم</option>
-          <option value="hours">⏰ ساعة</option><option value="minutes">⏱ دقيقة</option>
-        </select></div>
-      <div class="form-group"><label class="form-label">العدد</label>
-        <input class="form-input" type="number" id="extAmount" value="1" min="1"></div>
-      
-      <!-- ✅ حقل المبلغ الإجمالي -->
-      <div class="form-group"><label class="form-label">المبلغ الإجمالي المطلوب</label>
-        <input class="form-input" type="number" id="extTotalCost" value="0" min="0"></div>
+    UI.modal({
+      title: 'تمديد اشتراك (صفحة جديدة)',
+      content: `
+        <div class="form-group"><label class="form-label">الوحدة</label>
+          <select class="form-select" id="extUnit">
+            <option value="months">📅 شهر</option><option value="days">📆 يوم</option>
+            <option value="hours">⏰ ساعة</option><option value="minutes">⏱ دقيقة</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">العدد</label>
+          <input class="form-input" type="number" id="extAmount" value="1" min="1"></div>
+        
+        <div class="form-group"><label class="form-label">المبلغ الإجمالي المطلوب</label>
+          <input class="form-input" type="number" id="extTotalCost" value="0" min="0"></div>
 
-      <div class="form-group"><label class="form-label">المبلغ المدفوع الآن</label>
-        <input class="form-input" type="number" id="extPaid" value="0" min="0"></div>
-        
-      <button class="btn btn-primary btn-block" id="btnExt">حفظ الاشتراك</button>`,
-    onOpen: (el, close) => {
-      el.querySelector('#btnExt').onclick = () => {
-        const unit = el.querySelector('#extUnit').value;
-        const v = Number(el.querySelector('#extAmount').value);
-        const total = Number(el.querySelector('#extTotalCost').value) || 0;
-        const amt = Number(el.querySelector('#extPaid').value) || 0;
-        
-        if (v <= 0) return UI.toast('أدخل عدداً صحيحاً', 'error');
-        if (amt > total) return UI.toast('المدفوع لا يمكن أن يكون أكبر من الإجمالي', 'error');
-        
-        try {
-          DB.grantSubscription(num, { [unit]: v, amount: amt, totalCost: total, resetMonthsIfExpired: false });
-          DB.logAudit('ADMIN_EXTEND', num, `+${v} ${unit} total=${total} paid=${amt}`);
-          DB.addNotification(num, '✅ تمديد اشتراك', `تم تمديد اشتراكك بمقدار ${v} ${unit}.`, 'green');
-          UI.toast('✅ تم حفظ الاشتراك الجديد', 'success'); close(); this.render();
-        } catch(e) { UI.toast(e.message, 'error'); }
-      };
-    }
-  });
-},
+        <div class="form-group"><label class="form-label">المبلغ المدفوع الآن</label>
+          <input class="form-input" type="number" id="extPaid" value="0" min="0"></div>
+          
+        <button class="btn btn-primary btn-block" id="btnExt">حفظ الاشتراك</button>`,
+      onOpen: (el, close) => {
+        el.querySelector('#btnExt').onclick = () => {
+          const unit = el.querySelector('#extUnit').value;
+          const v = Number(el.querySelector('#extAmount').value);
+          const total = Number(el.querySelector('#extTotalCost').value) || 0;
+          const amt = Number(el.querySelector('#extPaid').value) || 0;
+          
+          if (v <= 0) return UI.toast('أدخل عدداً صحيحاً', 'error');
+          if (amt > total) return UI.toast('المدفوع لا يمكن أن يكون أكبر من الإجمالي', 'error');
+          
+          try {
+            DB.grantSubscription(num, { [unit]: v, amount: amt, totalCost: total, resetMonthsIfExpired: false });
+            DB.logAudit('ADMIN_EXTEND', num, `+${v} ${unit} total=${total} paid=${amt}`);
+            DB.addNotification(num, '✅ تمديد اشتراك', `تم تمديد اشتراكك بمقدار ${v} ${unit}.`, 'green');
+            UI.toast('✅ تم حفظ الاشتراك الجديد', 'success'); close(); this.render();
+          } catch(e) { UI.toast(e.message, 'error'); }
+        };
+      }
+    });
+  },
 
   extendAi(num) {
-  UI.modal({
-    title: 'تمديد اشتراك المحلل الذكي (صفحة جديدة)',
-    content: `
-      <div class="form-group"><label class="form-label">عدد الأشهر</label>
-        <input class="form-input" type="number" id="extAiMonths" value="1" min="1"></div>
-      
-      <div class="form-group"><label class="form-label">المبلغ الإجمالي المطلوب</label>
-        <input class="form-input" type="number" id="extAiTotalCost" value="0" min="0"></div>
+    UI.modal({
+      title: 'تمديد اشتراك المحلل الذكي (صفحة جديدة)',
+      content: `
+        <div class="form-group"><label class="form-label">عدد الأشهر</label>
+          <input class="form-input" type="number" id="extAiMonths" value="1" min="1"></div>
+        
+        <div class="form-group"><label class="form-label">المبلغ الإجمالي المطلوب</label>
+          <input class="form-input" type="number" id="extAiTotalCost" value="0" min="0"></div>
 
-      <div class="form-group"><label class="form-label">المبلغ المدفوع الآن</label>
-        <input class="form-input" type="number" id="extAiPaid" value="0" min="0"></div>
+        <div class="form-group"><label class="form-label">المبلغ المدفوع الآن</label>
+          <input class="form-input" type="number" id="extAiPaid" value="0" min="0"></div>
 
-      <button class="btn btn-primary btn-block" id="btnExtAi" style="background:#3B82F6; border-color:#3B82F6">حفظ اشتراك البوت</button>`,
-    onOpen: (el, close) => {
-      el.querySelector('#btnExtAi').onclick = () => {
-        const v = Number(el.querySelector('#extAiMonths').value);
-        const total = Number(el.querySelector('#extAiTotalCost').value) || 0;
-        const amt = Number(el.querySelector('#extAiPaid').value) || 0;
-        
-        if (v <= 0) return UI.toast('أدخل عدداً صحيحاً', 'error');
-        if (amt > total) return UI.toast('المدفوع لا يمكن أن يكون أكبر من الإجمالي', 'error');
-        
-        // استدعاء الدالة المحدثة في db2.js
-        DB.grantAiSubscription(num, { months: v, totalCost: total, amountPaid: amt });
-        
-        DB.logAudit('ADMIN_EXTEND_AI', num, `+${v} months total=${total} paid=${amt}`);
-        DB.addNotification(num, '🤖 تمديد البوت', `تم تمديد اشتراك المحلل الذكي بمقدار ${v} شهر.`, 'blue');
-        UI.toast('✅ تم التمديد', 'success'); close(); this.render();
-      };
-    }
-  });
-},
+        <button class="btn btn-primary btn-block" id="btnExtAi" style="background:#3B82F6; border-color:#3B82F6">حفظ اشتراك البوت</button>`,
+      onOpen: (el, close) => {
+        el.querySelector('#btnExtAi').onclick = () => {
+          const v = Number(el.querySelector('#extAiMonths').value);
+          const total = Number(el.querySelector('#extAiTotalCost').value) || 0;
+          const amt = Number(el.querySelector('#extAiPaid').value) || 0;
+          
+          if (v <= 0) return UI.toast('أدخل عدداً صحيحاً', 'error');
+          if (amt > total) return UI.toast('المدفوع لا يمكن أن يكون أكبر من الإجمالي', 'error');
+          
+          DB.grantAiSubscription(num, { months: v, totalCost: total, amountPaid: amt });
+          DB.logAudit('ADMIN_EXTEND_AI', num, `+${v} months total=${total} paid=${amt}`);
+          DB.addNotification(num, '🤖 تمديد البوت', `تم تمديد اشتراك المحلل الذكي بمقدار ${v} شهر.`, 'blue');
+          UI.toast('✅ تم التمديد', 'success'); close(); this.render();
+        };
+      }
+    });
+  },
 
   resetAi(num) {
     UI.confirm({ title: 'تصفير البوت', message: 'سيتم إيقاف اشتراك البوت فوراً. متابعة؟', danger: true, onConfirm: () => {
@@ -579,259 +572,248 @@ const Admin = {
     document.getElementById('broadcastBody').value = '';
   },
 
-
-
-
-
   checkClientDetails(num) {
-  try {
-    const c = DB.findClient(num);
-    if (!c) return alert('العميل غير موجود في الذاكرة المحلية. جرب تحديث الصفحة.');
+    try {
+      const c = DB.findClient(num);
+      if (!c) return alert('العميل غير موجود في الذاكرة المحلية. جرب تحديث الصفحة.');
 
-    const sysSub = DB.subscriptionStatus(c);
-    const isSysFree = (c.money === 0 || !c.money) && c.subscription_months <= 1;
-    
-    const aiSub = DB.getAiSubscriptionStatus(c);
-    const isAiFree = c.ai_trial_used && c.ai_subscription_months <= 1;
+      const sysSub = DB.subscriptionStatus(c);
+      const isSysFree = (c.money === 0 || !c.money) && c.subscription_months <= 1;
+      
+      const aiSub = DB.getAiSubscriptionStatus(c);
+      const isAiFree = c.ai_trial_used && c.ai_subscription_months <= 1;
 
-    // حساب المساحة
-    let totalBytes = 0;
-    const keysToCheck = ['products', 'shop_customers', 'shop_debts', 'cash_sales', 'network_sales', 'personal_expenses', 'personal_income', 'personal_debts'];
-    keysToCheck.forEach(k => {
-       const data = DB.get(k, []).filter(x => Number(x.client_num) === Number(num));
-       try { totalBytes += new Blob([JSON.stringify(data)]).size; } catch(e) {}
-    });
-    const sizeStr = totalBytes < 1024 ? totalBytes + ' بايت' : (totalBytes / 1024).toFixed(1) + ' كيلوبايت';
+      let totalBytes = 0;
+      const keysToCheck = ['products', 'shop_customers', 'shop_debts', 'cash_sales', 'network_sales', 'personal_expenses', 'personal_income', 'personal_debts'];
+      keysToCheck.forEach(k => {
+         const data = DB.get(k, []).filter(x => Number(x.client_num) === Number(num));
+         try { totalBytes += new Blob([JSON.stringify(data)]).size; } catch(e) {}
+      });
+      const sizeStr = totalBytes < 1024 ? totalBytes + ' بايت' : (totalBytes / 1024).toFixed(1) + ' كيلوبايت';
 
-    const monthsSinceCreation = Math.floor(DB.daysBetween(c.created_at || DB.now(), DB.now()) / 30) || 1;
+      const monthsSinceCreation = Math.floor(DB.daysBetween(c.created_at || DB.now(), DB.now()) / 30) || 1;
 
-    const allLogs = DB.get('audit_log', []);
-    const userLogins = allLogs.filter(l => Number(l.client_num) === Number(num) && l.action === 'LOGIN');
-    userLogins.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-    const lastVisit = userLogins.length ? userLogins[0].created_at : (c.created_at || DB.now());
+      const allLogs = DB.get('audit_log', []);
+      const userLogins = allLogs.filter(l => Number(l.client_num) === Number(num) && l.action === 'LOGIN');
+      userLogins.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+      const lastVisit = userLogins.length ? userLogins[0].created_at : (c.created_at || DB.now());
 
-    const subs = DB.getSubRequests().filter(r => Number(r.client_num) === Number(num) && r.status === 'APPROVED');
-    const sysSubs = subs.filter(s => s.type !== 'ai');
-    const aiSubs = subs.filter(s => s.type === 'ai');
+      const subs = DB.getSubRequests().filter(r => Number(r.client_num) === Number(num) && r.status === 'APPROVED');
+      const sysSubs = subs.filter(s => s.type !== 'ai');
+      const aiSubs = subs.filter(s => s.type === 'ai');
 
-    // ✅ الحساب التاريخي الشامل (تجربة + مدفوع + تمديدات)
-    let totalSysMonths = 0;
-    sysSubs.forEach(r => totalSysMonths += Number(r.months));
-    const sysExts = allLogs.filter(l => Number(l.client_num) === Number(num) && l.action === 'ADMIN_EXTEND' && l.details.includes('months'));
-    sysExts.forEach(l => {
-        const m = l.details.match(/\+(\d+)\s+months/);
-        if (m) totalSysMonths += Number(m[1]);
-    });
-    if (totalSysMonths === 0) totalSysMonths = Number(c.subscription_months) || 1;
+      let totalSysMonths = 0;
+      sysSubs.forEach(r => totalSysMonths += Number(r.months));
+      const sysExts = allLogs.filter(l => Number(l.client_num) === Number(num) && l.action === 'ADMIN_EXTEND' && l.details.includes('months'));
+      sysExts.forEach(l => {
+          const m = l.details.match(/\+(\d+)\s+months/);
+          if (m) totalSysMonths += Number(m[1]);
+      });
+      if (totalSysMonths === 0) totalSysMonths = Number(c.subscription_months) || 1;
 
-    let totalAiMonths = c.ai_trial_used ? 1 : 0;
-    aiSubs.forEach(r => totalAiMonths += Number(r.months));
-    const aiExts = allLogs.filter(l => Number(l.client_num) === Number(num) && l.action === 'ADMIN_EXTEND_AI');
-    aiExts.forEach(l => {
-        const m = l.details.match(/\+(\d+)\s+months/);
-        if (m) totalAiMonths += Number(m[1]);
-    });
-    if (totalAiMonths === 0) totalAiMonths = Number(c.ai_subscription_months) || (c.ai_trial_used ? 1 : 0);
+      let totalAiMonths = c.ai_trial_used ? 1 : 0;
+      aiSubs.forEach(r => totalAiMonths += Number(r.months));
+      const aiExts = allLogs.filter(l => Number(l.client_num) === Number(num) && l.action === 'ADMIN_EXTEND_AI');
+      aiExts.forEach(l => {
+          const m = l.details.match(/\+(\d+)\s+months/);
+          if (m) totalAiMonths += Number(m[1]);
+      });
+      if (totalAiMonths === 0) totalAiMonths = Number(c.ai_subscription_months) || (c.ai_trial_used ? 1 : 0);
 
-    const firstSysSub = sysSubs.length ? sysSubs[0].created_at : (c.start_date || c.created_at);
-    const lastSysSub = sysSubs.length ? sysSubs[sysSubs.length - 1].created_at : (c.created_at || DB.now());
-    
-    const firstAiSub = aiSubs.length ? aiSubs[0].created_at : (c.ai_expiry_date ? c.created_at : null);
-    const lastAiSub = aiSubs.length ? aiSubs[aiSubs.length - 1].created_at : (c.ai_expiry_date ? c.created_at : null);
+      const firstSysSub = sysSubs.length ? sysSubs[0].created_at : (c.start_date || c.created_at);
+      const lastSysSub = sysSubs.length ? sysSubs[sysSubs.length - 1].created_at : (c.created_at || DB.now());
+      
+      const firstAiSub = aiSubs.length ? aiSubs[0].created_at : (c.ai_expiry_date ? c.created_at : null);
+      const lastAiSub = aiSubs.length ? aiSubs[aiSubs.length - 1].created_at : (c.ai_expiry_date ? c.created_at : null);
 
-    let totalAiPaid = 0;
-    aiSubs.forEach(s => totalAiPaid += Number(s.amount));
-    if (!totalAiPaid && c.ai_subscription_months > 0 && !isAiFree) totalAiPaid = c.ai_subscription_months * (DB.getSettings().ai_month_price || 0);
+      let totalAiPaid = 0;
+      aiSubs.forEach(s => totalAiPaid += Number(s.amount));
+      if (!totalAiPaid && c.ai_subscription_months > 0 && !isAiFree) totalAiPaid = c.ai_subscription_months * (DB.getSettings().ai_month_price || 0);
 
-    const sysMonthPrice = DB.getSettings().month_price || 0;
-    const aiMonthPrice = DB.getSettings().ai_month_price || 0;
-    
-    // ✅ قراءة المتبقي الحقيقي للاشتراك الحالي
-let sysRemainingMoney = c.current_sub_remaining || 0;
-let sysTotalCost = c.current_sub_total || 0;
-let sysPaidAmount = c.current_sub_paid || 0;
-    
-    // ✅ جلب بيانات البوت المالية الجديدة
-let aiRemainingMoney = c.current_ai_sub_remaining || 0;
-let aiTotalCost = c.current_ai_sub_total || 0;
-let aiPaidAmount = c.current_ai_sub_paid || 0;
-    
-    const daysSinceVisit = DB.daysBetween(lastVisit, DB.now());
-    let activityColor = 'var(--success)'; 
-    let activityText = 'نشط (خلال 24 ساعة)';
-    
-    if (daysSinceVisit > 30) { activityColor = 'var(--danger)'; activityText = 'خامل (أكثر من شهر)'; }
-    else if (daysSinceVisit > 14) { activityColor = '#F97316'; activityText = 'شبه خامل (أسبوعين)'; }
-    else if (daysSinceVisit > 7) { activityColor = 'var(--amber)'; activityText = 'متوسط (أسبوع)'; }
+      const sysMonthPrice = DB.getSettings().month_price || 0;
+      const aiMonthPrice = DB.getSettings().ai_month_price || 0;
+      
+      let sysRemainingMoney = c.current_sub_remaining || 0;
+      let sysTotalCost = c.current_sub_total || 0;
+      let sysPaidAmount = c.current_sub_paid || 0;
+      
+      let aiRemainingMoney = c.current_ai_sub_remaining || 0;
+      let aiTotalCost = c.current_ai_sub_total || 0;
+      let aiPaidAmount = c.current_ai_sub_paid || 0;
+      
+      const daysSinceVisit = DB.daysBetween(lastVisit, DB.now());
+      let activityColor = 'var(--success)'; 
+      let activityText = 'نشط (خلال 24 ساعة)';
+      
+      if (daysSinceVisit > 30) { activityColor = 'var(--danger)'; activityText = 'خامل (أكثر من شهر)'; }
+      else if (daysSinceVisit > 14) { activityColor = '#F97316'; activityText = 'شبه خامل (أسبوعين)'; }
+      else if (daysSinceVisit > 7) { activityColor = 'var(--amber)'; activityText = 'متوسط (أسبوع)'; }
 
-    UI.modal({
-      title: `🔍 تقرير شامل: ${UI.esc(c.name)}`,
-      content: `
-        <div class="card mb-3" style="background:var(--bg-3); border: 1px solid var(--border-2); padding: 15px;">
-          <div class="flex-between mb-2">
-            <h4 class="text-amber mb-0">📄 اشتراك النظام</h4>
-            <span class="badge ${isSysFree ? 'badge-warn' : 'badge-success'}">${isSysFree ? 'مجاني' : 'مدفوع'}</span>
-          </div>
-          
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
-            <<div><b>إجمالي كل المدفوعات:</b> <span style="color:var(--success)">${UI.fmtNum(c.money || 0)}</span></div>
-<div><b>المتبقي الحالي:</b> <span style="color:var(--danger); font-weight:bold">${UI.fmtNum(sysRemainingMoney)}</span></div>
-
-<div style="grid-column: span 2; background: rgba(245,158,11,0.1); padding: 8px; border-radius: 8px; margin-top:5px;">
-  <div class="flex-between"><span>إجمالي الاشتراك الحالي:</span><b>${UI.fmtNum(sysTotalCost)}</b></div>
-  <div class="flex-between"><span>ما دفعه في هذا الاشتراك:</span><b style="color:var(--success)">${UI.fmtNum(sysPaidAmount)}</b></div>
-</div>
-            <div><b>أنشأ الحساب:</b> ${UI.fmtDate(c.created_at)}</div>
-           <div><b>أول اشتراك:</b> ${UI.fmtDate(firstSysSub)}</div>
-            <div><b>آخر اشتراك:</b> ${UI.fmtDate(lastSysSub)}</div>
+      UI.modal({
+        title: `🔍 تقرير شامل: ${UI.esc(c.name)}`,
+        content: `
+          <div class="card mb-3" style="background:var(--bg-3); border: 1px solid var(--border-2); padding: 15px;">
+            <div class="flex-between mb-2">
+              <h4 class="text-amber mb-0">📄 اشتراك النظام</h4>
+              <span class="badge ${isSysFree ? 'badge-warn' : 'badge-success'}">${isSysFree ? 'مجاني' : 'مدفوع'}</span>
+            </div>
             
-            <!-- ✅ السطر الذي طلبته: إجمالي الأشهر الشامل -->
-            <div style="grid-column: span 2; padding: 10px; background: rgba(59,130,246,0.1); border-radius: 8px; text-align:center; margin-top:5px;">
-              <span style="font-size:1rem; font-weight:bold;">إجمالي أشهر الاشتراك منذ الإنشاء: </span>
-              <span style="color:var(--info); font-weight:900; font-size:1.3rem;">${totalSysMonths} شهر</span>
-              <div style="font-size:0.8rem; color:var(--text-2);">(شامل التجربة والتمديدات)</div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
+              <div><b>إجمالي كل المدفوعات:</b> <span style="color:var(--success)">${UI.fmtNum(c.money || 0)}</span></div>
+              <div><b>المتبقي الحالي:</b> <span style="color:var(--danger); font-weight:bold">${UI.fmtNum(sysRemainingMoney)}</span></div>
+
+              <div style="grid-column: span 2; background: rgba(245,158,11,0.1); padding: 8px; border-radius: 8px; margin-top:5px;">
+                <div class="flex-between"><span>إجمالي الاشتراك الحالي:</span><b>${UI.fmtNum(sysTotalCost)}</b></div>
+                <div class="flex-between"><span>ما دفعه في هذا الاشتراك:</span><b style="color:var(--success)">${UI.fmtNum(sysPaidAmount)}</b></div>
+              </div>
+
+              <div><b>أنشأ الحساب:</b> ${UI.fmtDate(c.created_at)}</div>
+              <div><b>أول اشتراك:</b> ${UI.fmtDate(firstSysSub)}</div>
+              <div><b>آخر اشتراك:</b> ${UI.fmtDate(lastSysSub)}</div>
+              
+              <div style="grid-column: span 2; padding: 10px; background: rgba(59,130,246,0.1); border-radius: 8px; text-align:center; margin-top:5px;">
+                <span style="font-size:1rem; font-weight:bold;">إجمالي أشهر الاشتراك منذ الإنشاء: </span>
+                <span style="color:var(--info); font-weight:900; font-size:1.3rem;">${totalSysMonths} شهر</span>
+                <div style="font-size:0.8rem; color:var(--text-2);">(شامل التجربة والتمديدات)</div>
+              </div>
+
+              <div style="grid-column: span 2;"><b>الوقت المتبقي الحالي:</b> <span style="color:${sysSub.ok ? 'var(--success)' : 'var(--danger)'}">${UI.fmtRemaining(c.expiry_date)}</span></div>
+              <div style="grid-column: span 2;"><b>مدة عضويته كعميل:</b> ${monthsSinceCreation} شهر</div>
             </div>
-
-            <div style="grid-column: span 2;"><b>الوقت المتبقي الحالي:</b> <span style="color:${sysSub.ok ? 'var(--success)' : 'var(--danger)'}">${UI.fmtRemaining(c.expiry_date)}</span></div>
-            <div style="grid-column: span 2;"><b>مدة عضويته كعميل:</b> ${monthsSinceCreation} شهر</div>
           </div>
-        </div>
 
-        <div class="card mb-3" style="background:var(--bg-3); border: 1px solid #3B82F6; padding: 15px;">
-          <div class="flex-between mb-2">
-            <h4 style="color:#60A5FA" class="mb-0">🤖 اشتراك المحلل الذكي</h4>
-            <span class="badge ${isAiFree ? 'badge-warn' : (c.ai_expiry_date ? 'badge-success' : 'badge-danger')}">${isAiFree ? 'مجاني (تجربة)' : (c.ai_expiry_date ? 'مدفوع' : 'غير مشترك')}</span>
-          </div>
-          
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
-<div><b>إجمالي كل المدفوعات:</b> <span style="color:var(--success)">${UI.fmtNum(c.ai_money || 0)}</span></div>
-<div><b>المتبقي الحالي:</b> <span style="color:var(--danger); font-weight:bold">${UI.fmtNum(aiRemainingMoney)}</span></div>
-
-<div style="grid-column: span 2; background: rgba(59,130,246,0.1); padding: 8px; border-radius: 8px; margin-top:5px;">
-  <div class="flex-between"><span>إجمالي الاشتراك الحالي:</span><b>${UI.fmtNum(aiTotalCost)}</b></div>
-  <div class="flex-between"><span>ما دفعه في هذا الاشتراك:</span><b style="color:var(--success)">${UI.fmtNum(aiPaidAmount)}</b></div>
-</div>
-
-<div><b>أول اشتراك:</b> ${firstAiSub ? UI.fmtDate(firstAiSub) : 'لا يوجد'}</div>
-<div><b>آخر اشتراك:</b> ${lastAiSub ? UI.fmtDate(lastAiSub) : 'لا يوجد'}</div>
+          <div class="card mb-3" style="background:var(--bg-3); border: 1px solid #3B82F6; padding: 15px;">
+            <div class="flex-between mb-2">
+              <h4 style="color:#60A5FA" class="mb-0">🤖 اشتراك المحلل الذكي</h4>
+              <span class="badge ${isAiFree ? 'badge-warn' : (c.ai_expiry_date ? 'badge-success' : 'badge-danger')}">${isAiFree ? 'مجاني (تجربة)' : (c.ai_expiry_date ? 'مدفوع' : 'غير مشترك')}</span>
+            </div>
             
-            <!-- ✅ السطر الذي طلبته للبوت -->
-            <div style="grid-column: span 2; padding: 10px; background: rgba(59,130,246,0.1); border-radius: 8px; text-align:center; margin-top:5px;">
-              <span style="font-size:1rem; font-weight:bold;">إجمالي أشهر البوت منذ الإنشاء: </span>
-              <span style="color:#60A5FA; font-weight:900; font-size:1.3rem;">${totalAiMonths} شهر</span>
-              <div style="font-size:0.8rem; color:var(--text-2);">(شامل التجربة والتمديدات)</div>
-            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
+              <div><b>إجمالي كل المدفوعات:</b> <span style="color:var(--success)">${UI.fmtNum(c.ai_money || 0)}</span></div>
+              <div><b>المتبقي الحالي:</b> <span style="color:var(--danger); font-weight:bold">${UI.fmtNum(aiRemainingMoney)}</span></div>
 
-            <div style="grid-column: span 2;"><b>الوقت المتبقي الحالي:</b> <span style="color:${aiSub.ok ? '#60A5FA' : 'var(--danger)'}">${c.ai_expiry_date ? UI.fmtRemaining(c.ai_expiry_date) : 'غير مشترك'}</span></div>
-          </div>
-        </div>
+              <div style="grid-column: span 2; background: rgba(59,130,246,0.1); padding: 8px; border-radius: 8px; margin-top:5px;">
+                <div class="flex-between"><span>إجمالي الاشتراك الحالي:</span><b>${UI.fmtNum(aiTotalCost)}</b></div>
+                <div class="flex-between"><span>ما دفعه في هذا الاشتراك:</span><b style="color:var(--success)">${UI.fmtNum(aiPaidAmount)}</b></div>
+              </div>
 
-        <div class="card" style="background:var(--bg-3); padding: 15px;">
-          <h4 class="text-amber mb-3" style="font-size:1.05rem;">📊 إحصائيات الاستخدام</h4>
-          <div class="flex-between mb-2">
-            <span>مساحة التخزين المستهلكة:</span>
-            <b>${sizeStr}</b>
-          </div>
-          <div class="flex-between mb-2">
-            <span>آخر زيارة للموقع:</span>
-            <b>${UI.fmtDateTime(lastVisit)}</b>
-          </div>
-          <div class="flex-between mt-3" style="padding-top: 10px; border-top: 1px dashed var(--border-2);">
-            <span>حالة النشاط:</span>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:0.85rem; color:${activityColor};">${activityText}</span>
-              <div style="width: 16px; height: 16px; border-radius: 50%; background: ${activityColor}; box-shadow: 0 0 10px ${activityColor};"></div>
+              <div><b>أول اشتراك:</b> ${firstAiSub ? UI.fmtDate(firstAiSub) : 'لا يوجد'}</div>
+              <div><b>آخر اشتراك:</b> ${lastAiSub ? UI.fmtDate(lastAiSub) : 'لا يوجد'}</div>
+              
+              <div style="grid-column: span 2; padding: 10px; background: rgba(59,130,246,0.1); border-radius: 8px; text-align:center; margin-top:5px;">
+                <span style="font-size:1rem; font-weight:bold;">إجمالي أشهر البوت منذ الإنشاء: </span>
+                <span style="color:#60A5FA; font-weight:900; font-size:1.3rem;">${totalAiMonths} شهر</span>
+                <div style="font-size:0.8rem; color:var(--text-2);">(شامل التجربة والتمديدات)</div>
+              </div>
+
+              <div style="grid-column: span 2;"><b>الوقت المتبقي الحالي:</b> <span style="color:${aiSub.ok ? '#60A5FA' : 'var(--danger)'}">${c.ai_expiry_date ? UI.fmtRemaining(c.ai_expiry_date) : 'غير مشترك'}</span></div>
             </div>
           </div>
-        </div>
-      `,
-      onOpen: (el) => { el.style.maxWidth = '550px'; }
-    });
-    
-  } catch (error) {
-    alert("❌ حدث خطأ أثناء عرض البيانات: " + error.message);
-    console.error(error);
-  }
-},
+
+          <div class="card" style="background:var(--bg-3); padding: 15px;">
+            <h4 class="text-amber mb-3" style="font-size:1.05rem;">📊 إحصائيات الاستخدام</h4>
+            <div class="flex-between mb-2">
+              <span>مساحة التخزين المستهلكة:</span>
+              <b>${sizeStr}</b>
+            </div>
+            <div class="flex-between mb-2">
+              <span>آخر زيارة للموقع:</span>
+              <b>${UI.fmtDateTime(lastVisit)}</b>
+            </div>
+            <div class="flex-between mt-3" style="padding-top: 10px; border-top: 1px dashed var(--border-2);">
+              <span>حالة النشاط:</span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.85rem; color:${activityColor};">${activityText}</span>
+                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${activityColor}; box-shadow: 0 0 10px ${activityColor};"></div>
+              </div>
+            </div>
+          </div>
+        `,
+        onOpen: (el) => { el.style.maxWidth = '550px'; }
+      });
+      
+    } catch (error) {
+      alert("❌ حدث خطأ أثناء عرض البيانات: " + error.message);
+      console.error(error);
+    }
+  },
 
   addPaymentMenu(num) {
-  UI.modal({
-    title: '💵 تسديد دفعة',
-    content: `
-      <p class="mb-4">اختر نوع الاشتراك الذي تريد تسجيل دفعة له:</p>
-      <div class="flex gap-2" style="flex-direction: column;">
-        <button class="btn btn-primary btn-block" onclick="Admin.addPaymentModal(${num}, 'sys')" style="background:#F59E0B; color:white;">📄 تسديد دفعة للنظام</button>
-        <button class="btn btn-primary btn-block" onclick="Admin.addPaymentModal(${num}, 'ai')" style="background:#3B82F6; color:white;">🤖 تسديد دفعة للبوت</button>
-      </div>
-    `
-  });
-},
-
-addPaymentModal(num, type) {
-  const c = DB.findClient(num);
-  if (!c) return;
-
-  let total = type === 'sys' ? (c.current_sub_total || 0) : (c.current_ai_sub_total || 0);
-  let paid = type === 'sys' ? (c.current_sub_paid || 0) : (c.current_ai_sub_paid || 0);
-  let remaining = type === 'sys' ? (c.current_sub_remaining || 0) : (c.current_ai_sub_remaining || 0);
-
-  UI.modal({
-    title: `💵 تسديد دفعة (${type === 'sys' ? 'النظام' : 'البوت'})`,
-    content: `
-      <div class="card mb-3" style="background:var(--bg-3); padding:15px;">
-        <div class="form-group">
-           <label class="form-label">إجمالي قيمة الاشتراك الحالي (يمكنك تعديله)</label>
-           <input class="form-input" type="number" id="payTotal" value="${total}">
+    UI.modal({
+      title: '💵 تسديد دفعة',
+      content: `
+        <p class="mb-4">اختر نوع الاشتراك الذي تريد تسجيل دفعة له:</p>
+        <div class="flex gap-2" style="flex-direction: column;">
+          <button class="btn btn-primary btn-block" onclick="Admin.addPaymentModal(${num}, 'sys')" style="background:#F59E0B; color:white;">📄 تسديد دفعة للنظام</button>
+          <button class="btn btn-primary btn-block" onclick="Admin.addPaymentModal(${num}, 'ai')" style="background:#3B82F6; color:white;">🤖 تسديد دفعة للبوت</button>
         </div>
-        <div class="form-group">
-           <label class="form-label">المدفوع سابقاً لهذا الاشتراك</label>
-           <input class="form-input" type="number" id="payPrevPaid" value="${paid}" disabled style="opacity:0.7">
+      `
+    });
+  },
+
+  addPaymentModal(num, type) {
+    const c = DB.findClient(num);
+    if (!c) return;
+
+    let total = type === 'sys' ? (c.current_sub_total || 0) : (c.current_ai_sub_total || 0);
+    let paid = type === 'sys' ? (c.current_sub_paid || 0) : (c.current_ai_sub_paid || 0);
+    let remaining = type === 'sys' ? (c.current_sub_remaining || 0) : (c.current_ai_sub_remaining || 0);
+
+    UI.modal({
+      title: `💵 تسديد دفعة (${type === 'sys' ? 'النظام' : 'البوت'})`,
+      content: `
+        <div class="card mb-3" style="background:var(--bg-3); padding:15px;">
+          <div class="form-group">
+             <label class="form-label">إجمالي قيمة الاشتراك الحالي (يمكنك تعديله)</label>
+             <input class="form-input" type="number" id="payTotal" value="${total}">
+          </div>
+          <div class="form-group">
+             <label class="form-label">المدفوع سابقاً لهذا الاشتراك</label>
+             <input class="form-input" type="number" id="payPrevPaid" value="${paid}" disabled style="opacity:0.7">
+          </div>
+          <div class="form-group">
+             <label class="form-label" style="color:var(--danger)">المتبقي الحالي: ${UI.fmtNum(remaining)}</label>
+             <label class="form-label mt-2">المبلغ الذي يدفعه الآن</label>
+             <input class="form-input" type="number" id="payNewAmount" placeholder="0" min="0">
+          </div>
+          <button class="btn btn-primary btn-block" id="btnPayConfirm" style="background:#10B981; border-color:#10B981">تسجيل الدفع</button>
         </div>
-        <div class="form-group">
-           <label class="form-label" style="color:var(--danger)">المتبقي الحالي: ${UI.fmtNum(remaining)}</label>
-           <label class="form-label mt-2">المبلغ الذي يدفعه الآن</label>
-           <input class="form-input" type="number" id="payNewAmount" placeholder="0" min="0">
-        </div>
-        <button class="btn btn-primary btn-block" id="btnPayConfirm" style="background:#10B981; border-color:#10B981">تسجيل الدفع</button>
-      </div>
-    `,
-    onOpen: (el, close) => {
-      el.querySelector('#btnPayConfirm').onclick = () => {
-        const newTotal = Number(el.querySelector('#payTotal').value) || 0;
-        const amountToPay = Number(el.querySelector('#payNewAmount').value) || 0;
+      `,
+      onOpen: (el, close) => {
+        el.querySelector('#btnPayConfirm').onclick = () => {
+          const newTotal = Number(el.querySelector('#payTotal').value) || 0;
+          const amountToPay = Number(el.querySelector('#payNewAmount').value) || 0;
 
-        if (amountToPay <= 0) return UI.toast('أدخل مبلغاً صحيحاً', 'error');
+          if (amountToPay <= 0) return UI.toast('أدخل مبلغاً صحيحاً', 'error');
 
-        const newPaid = paid + amountToPay;
-        const newRemaining = Math.max(0, newTotal - newPaid);
+          const newPaid = paid + amountToPay;
+          const newRemaining = Math.max(0, newTotal - newPaid);
 
-        const patch = {};
-        if (type === 'sys') {
-          patch.current_sub_total = newTotal;
-          patch.current_sub_paid = newPaid;
-          patch.current_sub_remaining = newRemaining;
-          patch.money = (c.money || 0) + amountToPay; 
-        } else {
-          patch.current_ai_sub_total = newTotal;
-          patch.current_ai_sub_paid = newPaid;
-          patch.current_ai_sub_remaining = newRemaining;
-          patch.ai_money = (c.ai_money || 0) + amountToPay;
-        }
+          const patch = {};
+          if (type === 'sys') {
+            patch.current_sub_total = newTotal;
+            patch.current_sub_paid = newPaid;
+            patch.current_sub_remaining = newRemaining;
+            patch.money = (c.money || 0) + amountToPay; 
+          } else {
+            patch.current_ai_sub_total = newTotal;
+            patch.current_ai_sub_paid = newPaid;
+            patch.current_ai_sub_remaining = newRemaining;
+            patch.ai_money = (c.ai_money || 0) + amountToPay;
+          }
 
-        DB.updateClient(num, patch);
-        DB.logAudit('MANUAL_PAYMENT', num, `دفعة ${amountToPay} لـ ${type}`);
-        DB.addNotification(num, '💵 تم استلام دفعة', `تم تسجيل دفعة بمبلغ ${UI.fmtNum(amountToPay)} لحسابك.`, 'green');
-        
-        UI.toast('✅ تم تسجيل الدفعة بنجاح', 'success');
-        close();
-        
-        // تحديث التقرير فوراً لرؤية النتيجة
-        setTimeout(() => this.checkClientDetails(num), 500);
-      };
-    }
-  });
-},
-  
+          DB.updateClient(num, patch);
+          DB.logAudit('MANUAL_PAYMENT', num, `دفعة ${amountToPay} لـ ${type}`);
+          DB.addNotification(num, '💵 تم استلام دفعة', `تم تسجيل دفعة بمبلغ ${UI.fmtNum(amountToPay)} لحسابك.`, 'green');
+          
+          UI.toast('✅ تم تسجيل الدفعة بنجاح', 'success');
+          close();
+          
+          setTimeout(() => this.checkClientDetails(num), 500);
+        };
+      }
+    });
+  },
 
   showMassResetMenu() {
     UI.modal({
