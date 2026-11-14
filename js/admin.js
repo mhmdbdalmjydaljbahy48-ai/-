@@ -589,6 +589,39 @@ massReset(type) {
   });
 },
 
+
+  showDeleteOldInvoicesMenu() {
+  UI.modal({
+    title: '🗑️ حذف الفواتير القديمة (جميع العملاء)',
+    content: `
+      <p class="mb-4 text-muted">اختر الفترة الزمنية لحذف الفواتير الأقدم منها لجميع العملاء:</p>
+      <div class="flex gap-2" style="flex-direction: column;">
+        <button class="btn btn-block" onclick="Admin.confirmDeleteOldInvoices('30d')" style="background:#10B981; color:white; font-weight:bold;">🟢 حذف الفواتير الأقدم من شهر</button>
+        <button class="btn btn-block" onclick="Admin.confirmDeleteOldInvoices('7d')" style="background:#F59E0B; color:white; font-weight:bold;">🟡 حذف الفواتير الأقدم من أسبوع</button>
+        <button class="btn btn-block" onclick="Admin.confirmDeleteOldInvoices('24h')" style="background:#EF4444; color:white; font-weight:bold;">🔴 حذف الفواتير الأقدم من 24 ساعة</button>
+      </div>
+    `
+  });
+},
+
+confirmDeleteOldInvoices(timeframe) {
+  const label = timeframe === '30d' ? 'شهر' : timeframe === '7d' ? 'أسبوع' : '24 ساعة';
+  UI.confirm({
+    title: 'تأكيد الحذف',
+    message: `هل أنت متأكد من حذف جميع الفواتير الأقدم من ${label} لجميع العملاء؟ لا يمكن التراجع!`,
+    danger: true,
+    onConfirm: () => {
+      const count = DB.deleteOldInvoices(timeframe, true, null);
+      UI.toast(`🗑️ تم حذف ${count} فاتورة بنجاح`, 'success');
+      document.getElementById('ft-modal').remove();
+      this.render();
+    }
+  });
+},
+
+
+  
+
 // 3. دالة البحث الفوري في القائمة
 filterMassReset(query) {
   const q = query.toLowerCase();
