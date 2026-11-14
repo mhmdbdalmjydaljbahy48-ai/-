@@ -489,7 +489,7 @@ confirmDeleteOldInvoices(timeframe) {
     const u = UI.unitOf(this.client); const shop = this.client.shop_name || this.client.name;
     const L = ['====================================','          فاتورة مبيعات             ','====================================',`المحل: ${shop}`,`رقم الفاتورة: ${invNum}`,`نوع الفاتورة: ${kind === 'c' ? 'كاش' : kind === 'n' ? 'شبكة' : 'آجلة'}`,`اسم العميل: ${rows[0].customer_name}`,`التاريخ: ${UI.fmtDateTime(rows[0].sale_date || rows[0].debt_date)}`,'------------------------------------'];
     let total = 0;
-    for (const r of rows) { const amt = kind === 'd' ? r.debt_amount : r.total_amount; L.push(`${r.product_name} | ${r.quantity} × ${r.single_price} = ${UI.fmtNum(amt)} ${u}`); total += Number(amt); }
+    for (const r of rows) { const amt = kind === 'd' ? r.debt_amount : r.total_amount; L.push(`${r.product_name} | ${r.quantity} × ${UI.fmtNum(r.single_price, 1)} = ${UI.fmtNum(amt)} ${u}`); total += Number(amt); }
     L.push('------------------------------------',`الإجمالي: ${UI.fmtNum(total)} ${u}`,'====================================','        شكراً لتسوقكم معنا!         ');
     const blob = new Blob(['\uFEFF' + L.join('\n')], { type: 'text/plain;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Invoice_${invNum}.txt`; a.click(); URL.revokeObjectURL(a.href);
