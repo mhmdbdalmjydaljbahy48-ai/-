@@ -590,9 +590,11 @@ let sysRemainingMoney = c.current_sub_remaining || 0;
 let sysTotalCost = c.current_sub_total || 0;
 let sysPaidAmount = c.current_sub_paid || 0;
     
-    let aiRemainingMoney = 0;
-    if (aiSub.ok && aiSub.days !== null) aiRemainingMoney = (aiSub.days / 30) * aiMonthPrice;
-
+    // ✅ جلب بيانات البوت المالية الجديدة
+let aiRemainingMoney = c.current_ai_sub_remaining || 0;
+let aiTotalCost = c.current_ai_sub_total || 0;
+let aiPaidAmount = c.current_ai_sub_paid || 0;
+    
     const daysSinceVisit = DB.daysBetween(lastVisit, DB.now());
     let activityColor = 'var(--success)'; 
     let activityText = 'نشط (خلال 24 ساعة)';
