@@ -655,6 +655,81 @@ const Admin = {
     console.error(error);
   }
 },
+
+  settlePayment(num) {
+  const c = DB.findClient(num);
+  if (!c) return;
+
+  const sysSub = DB.subscriptionStatus(c);
+  const aiSub = DB.getAiSubscriptionStatus(c);
+  
+  const sysMonthPrice = DB.getSettings().month_price || 0;
+  const aiMonthPrice = DB.getSettings().ai_month_price || 0;
+
+  // حساب المتبقي الحالي
+  let sysRemaining = 0;
+  if (sysSub.ok && sysSub.days !== null) sysRemaining = Math.max(0, (sysSub.days / 30) * sysMonthPrice);
+  
+  let aiRemaining = 0;
+  if (aiSub.ok && aiSub.days !== null) aiRemaining = Math.max(0, (aiSub.days / 30) * aiMonthPrice);
+
+  UI.modal({
+    title: `💵 تسديد اشتراكات: ${UI.esc(c.name)}`,
+    content: `
+      <div class="card mb-3" style="background:var(--bg-3); padding:15px;">
+        <h4 class="text-amber mb-2">📄 اشتراك النظام</h4>
+        <div class="flex-between mb-2"><span>المتبقي الحالي:</span><b style="color:var(--danger)">${UI.fmtNum(sysRemaining)}</b></div>
+        <div class="form-group">
+          <label class="form-label">المبلغ المسدد (النظام)</label>
+          <input class="form-input" type="number" id="sysPayAmount" placeholder="أدخل المبلغ..." value="${sysRemaining}">
+        </div>
+        <button class="btn btn-primary btn-block" onclick="Admin.doSettle(${num}, 'sys')">تسديد النظام</button>
+      </div>
+
+      <div class="card" style="background:var(--bg-3); padding:15px; border: 1px solid #3B82F6;">
+        <h4 style="color:#60A5FA" class="mb-2">🤖 اشتراك البوت</h4>
+        <div class="flex-between mb-2"><span>المتبقي الحالي:</span><b style="color:var(--danger)">${UI.fmtNum(aiRemaining)}</b></div>
+        <div class="form-group">
+          <label class="form-label">المبلغ المسدد (البوت)</label>
+          <input class="form-input" type="number" id="aiPayAmount" placeholder="أدخل المبلغ..." value="${aiRemaining}">
+        </div>
+        <button class="btn btn-primary btn-block" onclick="Admin.doSettle(${num}, 'ai')" style="background:#3B82F6; border-color:#3B82F6">تسديد البوت</button>
+      </div>
+    `,
+    onOpen: (el) => el.style.maxWidth = '450px'
+  });
+},
+
+doSettle(num, type) {
+  const c = DB.findClient(num);
+  if (!c) return;
+  
+  let amount = 0;
+  if (type === 'sys') {
+    amount = Number(document.getElementById('sysPayAmount').value);
+    if (amount <= 0) return UI.toast('أدخل مبلغاً صحيحاً', 'error');
+    
+    // تحديث إجمالي المدفوعات للنظام
+    DB.updateClient(num, { money: (c.money || 0) + amount });
+    
+  } else {
+    amount = Number(document.getElementById('aiPayAmount').value);
+    if (amount <= 0) return UI.toast('أدخل مبلغاً صحيحاً', 'error');
+    
+    // تحديث مدفوعات البوت (سنحفظها في حقل جديد ai_money)
+    DB.updateClient(num, { ai_money: (c.ai_money || 0) + amount });
+  }
+
+  // تسجيل العملية في سجل الرقابة
+  DB.logAudit('MANUAL_PAYMENT', num, `تم تسديد ${amount} للنظام/البوت (${type})`);
+  
+  // إرسال إشعار للعميل
+  DB.addNotification(num, '💵 تم استلام دفعة', `تم تسجيل دفعة بمبلغ ${UI.fmtNum(amount)} لحسابك.`, 'green');
+
+  UI.toast('✅ تم تسجيل الدفعة بنجاح', 'success');
+  document.getElementById('ft-modal').remove();
+  this.render(); // تحديث الجدول
+},
   
 
   showMassResetMenu() {
