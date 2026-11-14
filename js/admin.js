@@ -232,8 +232,8 @@ const Admin = {
           <button class="btn btn-outline" data-act="ai_reset" style="border-color: #3B82F6; color: #3B82F6;">🚫 تصفير بوت</button>
           
           <button class="btn btn-outline" data-act="check" style="grid-column:span 2; border-color: var(--success); color: var(--success)">🔍 فحص اشتراك العميل</button>
-<!-- ✅ الزر الجديد هنا -->
-          <button class="btn btn-outline" data-act="settle" style="grid-column:span 2; border-color: #10B981; color: #10B981;">💵 تسديد المتبقي</button>
+<!-- ✅ زر تسديد الدفعة الجديد -->
+<button class="btn btn-outline" data-act="pay" style="grid-column:span 2; border-color: #10B981; color: #10B981;">💵 تسديد دفعة (النظام / البوت)</button>
           <button class="btn btn-outline" data-act="contact" style="grid-column:span 2; border-color: #3B82F6; color: #3B82F6;">📞 التواصل مع العميل</button>
 
           <button class="btn btn-danger" data-act="reset" style="grid-column:span 2">🔄 تصفير البيانات</button>
@@ -254,7 +254,7 @@ const Admin = {
             else if (act === 'reset') this.resetUser(num);
             else if (act === 'delete') this.deleteUser(num);
             else if (act === 'check') this.checkClientDetails(num);
-            else if (act === 'settle') this.settlePayment(num);
+            else if (act === 'pay') this.addPaymentMenu(num);
           };
         });
       }
@@ -673,79 +673,82 @@ let sysPaidAmount = c.current_sub_paid || 0;
   }
 },
 
-  settlePayment(num) {
-  const c = DB.findClient(num);
-  if (!c) return;
-
-  const sysSub = DB.subscriptionStatus(c);
-  const aiSub = DB.getAiSubscriptionStatus(c);
-  
-  const sysMonthPrice = DB.getSettings().month_price || 0;
-  const aiMonthPrice = DB.getSettings().ai_month_price || 0;
-
-  // حساب المتبقي الحالي
-  let sysRemaining = 0;
-  if (sysSub.ok && sysSub.days !== null) sysRemaining = Math.max(0, (sysSub.days / 30) * sysMonthPrice);
-  
-  let aiRemaining = 0;
-  if (aiSub.ok && aiSub.days !== null) aiRemaining = Math.max(0, (aiSub.days / 30) * aiMonthPrice);
-
+  addPaymentMenu(num) {
   UI.modal({
-    title: `💵 تسديد اشتراكات: ${UI.esc(c.name)}`,
+    title: '💵 تسديد دفعة',
     content: `
-      <div class="card mb-3" style="background:var(--bg-3); padding:15px;">
-        <h4 class="text-amber mb-2">📄 اشتراك النظام</h4>
-        <div class="flex-between mb-2"><span>المتبقي الحالي:</span><b style="color:var(--danger)">${UI.fmtNum(sysRemaining)}</b></div>
-        <div class="form-group">
-          <label class="form-label">المبلغ المسدد (النظام)</label>
-          <input class="form-input" type="number" id="sysPayAmount" placeholder="أدخل المبلغ..." value="${sysRemaining}">
-        </div>
-        <button class="btn btn-primary btn-block" onclick="Admin.doSettle(${num}, 'sys')">تسديد النظام</button>
+      <p class="mb-4">اختر نوع الاشتراك الذي تريد تسجيل دفعة له:</p>
+      <div class="flex gap-2" style="flex-direction: column;">
+        <button class="btn btn-primary btn-block" onclick="Admin.addPaymentModal(${num}, 'sys')" style="background:#F59E0B; color:white;">📄 تسديد دفعة للنظام</button>
+        <button class="btn btn-primary btn-block" onclick="Admin.addPaymentModal(${num}, 'ai')" style="background:#3B82F6; color:white;">🤖 تسديد دفعة للبوت</button>
       </div>
-
-      <div class="card" style="background:var(--bg-3); padding:15px; border: 1px solid #3B82F6;">
-        <h4 style="color:#60A5FA" class="mb-2">🤖 اشتراك البوت</h4>
-        <div class="flex-between mb-2"><span>المتبقي الحالي:</span><b style="color:var(--danger)">${UI.fmtNum(aiRemaining)}</b></div>
-        <div class="form-group">
-          <label class="form-label">المبلغ المسدد (البوت)</label>
-          <input class="form-input" type="number" id="aiPayAmount" placeholder="أدخل المبلغ..." value="${aiRemaining}">
-        </div>
-        <button class="btn btn-primary btn-block" onclick="Admin.doSettle(${num}, 'ai')" style="background:#3B82F6; border-color:#3B82F6">تسديد البوت</button>
-      </div>
-    `,
-    onOpen: (el) => el.style.maxWidth = '450px'
+    `
   });
 },
 
-doSettle(num, type) {
+addPaymentModal(num, type) {
   const c = DB.findClient(num);
   if (!c) return;
-  
-  let amount = 0;
-  if (type === 'sys') {
-    amount = Number(document.getElementById('sysPayAmount').value);
-    if (amount <= 0) return UI.toast('أدخل مبلغاً صحيحاً', 'error');
-    
-    // تحديث إجمالي المدفوعات للنظام
-    DB.updateClient(num, { money: (c.money || 0) + amount });
-    
-  } else {
-    amount = Number(document.getElementById('aiPayAmount').value);
-    if (amount <= 0) return UI.toast('أدخل مبلغاً صحيحاً', 'error');
-    
-    // تحديث مدفوعات البوت (سنحفظها في حقل جديد ai_money)
-    DB.updateClient(num, { ai_money: (c.ai_money || 0) + amount });
-  }
 
-  // تسجيل العملية في سجل الرقابة
-  DB.logAudit('MANUAL_PAYMENT', num, `تم تسديد ${amount} للنظام/البوت (${type})`);
-  
-  // إرسال إشعار للعميل
-  DB.addNotification(num, '💵 تم استلام دفعة', `تم تسجيل دفعة بمبلغ ${UI.fmtNum(amount)} لحسابك.`, 'green');
+  let total = type === 'sys' ? (c.current_sub_total || 0) : (c.current_ai_sub_total || 0);
+  let paid = type === 'sys' ? (c.current_sub_paid || 0) : (c.current_ai_sub_paid || 0);
+  let remaining = type === 'sys' ? (c.current_sub_remaining || 0) : (c.current_ai_sub_remaining || 0);
 
-  UI.toast('✅ تم تسجيل الدفعة بنجاح', 'success');
-  document.getElementById('ft-modal').remove();
-  this.render(); // تحديث الجدول
+  UI.modal({
+    title: `💵 تسديد دفعة (${type === 'sys' ? 'النظام' : 'البوت'})`,
+    content: `
+      <div class="card mb-3" style="background:var(--bg-3); padding:15px;">
+        <div class="form-group">
+           <label class="form-label">إجمالي قيمة الاشتراك الحالي (يمكنك تعديله)</label>
+           <input class="form-input" type="number" id="payTotal" value="${total}">
+        </div>
+        <div class="form-group">
+           <label class="form-label">المدفوع سابقاً لهذا الاشتراك</label>
+           <input class="form-input" type="number" id="payPrevPaid" value="${paid}" disabled style="opacity:0.7">
+        </div>
+        <div class="form-group">
+           <label class="form-label" style="color:var(--danger)">المتبقي الحالي: ${UI.fmtNum(remaining)}</label>
+           <label class="form-label mt-2">المبلغ الذي يدفعه الآن</label>
+           <input class="form-input" type="number" id="payNewAmount" placeholder="0" min="0">
+        </div>
+        <button class="btn btn-primary btn-block" id="btnPayConfirm" style="background:#10B981; border-color:#10B981">تسجيل الدفع</button>
+      </div>
+    `,
+    onOpen: (el, close) => {
+      el.querySelector('#btnPayConfirm').onclick = () => {
+        const newTotal = Number(el.querySelector('#payTotal').value) || 0;
+        const amountToPay = Number(el.querySelector('#payNewAmount').value) || 0;
+
+        if (amountToPay <= 0) return UI.toast('أدخل مبلغاً صحيحاً', 'error');
+
+        const newPaid = paid + amountToPay;
+        const newRemaining = Math.max(0, newTotal - newPaid);
+
+        const patch = {};
+        if (type === 'sys') {
+          patch.current_sub_total = newTotal;
+          patch.current_sub_paid = newPaid;
+          patch.current_sub_remaining = newRemaining;
+          patch.money = (c.money || 0) + amountToPay; 
+        } else {
+          patch.current_ai_sub_total = newTotal;
+          patch.current_ai_sub_paid = newPaid;
+          patch.current_ai_sub_remaining = newRemaining;
+          patch.ai_money = (c.ai_money || 0) + amountToPay;
+        }
+
+        DB.updateClient(num, patch);
+        DB.logAudit('MANUAL_PAYMENT', num, `دفعة ${amountToPay} لـ ${type}`);
+        DB.addNotification(num, '💵 تم استلام دفعة', `تم تسجيل دفعة بمبلغ ${UI.fmtNum(amountToPay)} لحسابك.`, 'green');
+        
+        UI.toast('✅ تم تسجيل الدفعة بنجاح', 'success');
+        close();
+        
+        // تحديث التقرير فوراً لرؤية النتيجة
+        setTimeout(() => this.checkClientDetails(num), 500);
+      };
+    }
+  });
 },
   
 
