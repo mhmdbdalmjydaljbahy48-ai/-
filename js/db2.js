@@ -716,25 +716,39 @@ function resetAiSubscription(num) {
     return true;
   }
 
-  function grantSubscription(num, { minutes=0, hours=0, days=0, months=0, amount=0, resetMonthsIfExpired=true }) {
-    const client = findClient(num);
-    if (!client) throw new Error('العميل غير موجود');
-    const isExpired = daysBetween(now(), client.expiry_date) < 0;
-    const base = isExpired ? now() : client.expiry_date;
-    const newExpiry = addPrecise(base, { minutes, hours, days, months });
-    let newMonths = client.subscription_months || 0;
-    let newStart = client.start_date;
-    if (months > 0) {
-      if (isExpired && resetMonthsIfExpired) { newStart = now(); newMonths = months; }
-      else newMonths += months;
-    }
-    return updateClient(num, {
-      expiry_date: newExpiry, subscription_months: newMonths,
-      subscription_duration: durationLabel(newMonths), start_date: newStart,
-      money: (client.money || 0) + Number(amount || 0),
-      is_active: 1,
-      last_reminder_kind: null, last_reminder_at: null,
-    });
+  function grantSubscription(num, { minutes=0, hours=0, days=0, months=0, amount=0, resetMonthsIfExpired=true, totalCost=0 }) {
+  const client = findClient(num);
+  if (!client) throw new Error('العميل غير موجود');
+  const isExpired = daysBetween(now(), client.expiry_date) < 0;
+  const base = isExpired ? now() : client.expiry_date;
+  const newExpiry = addPrecise(base, { minutes, hours, days, months });
+  
+  let newMonths = client.subscription_months || 0;
+  let newStart = client.start_date;
+  if (months > 0) {
+    if (isExpired && resetMonthsIfExpired) { newStart = now(); newMonths = months; }
+    else newMonths += months;
+  }
+
+  // ✅ حساب المتبقي للاشتراك الجديد
+  const paidNow = Number(amount || 0);
+  const remaining = Math.max(0, Number(totalCost) - paidNow);
+
+  return updateClient(num, {
+    expiry_date: newExpiry, 
+    subscription_months: newMonths,
+    subscription_duration: durationLabel(newMonths), 
+    start_date: newStart,
+    money: (client.money || 0) + paidNow, // إجمالي كل ما دفعه في حياته
+    
+    // ✅ الحقول الجديدة الخاصة بالاشتراك الحالي فقط
+    current_sub_total: Number(totalCost),
+    current_sub_paid: paidNow,
+    current_sub_remaining: remaining,
+    
+    is_active: 1,
+    last_reminder_kind: null, last_reminder_at: null,
+  });
   }
 
   function addInquiry(data) {
