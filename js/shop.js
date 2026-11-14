@@ -115,7 +115,7 @@ printInvoice(kind, invNum) {
   let total = 0;
   rows.forEach(r => {
     const amt = kind === 'd' ? r.debt_amount : r.total_amount;
-    html += `<tr><td>${r.product_name}</td><td>${r.quantity}</td><td>${r.single_price} ${u}</td><td>${UI.fmtNum(amt)} ${u}</td></tr>`;
+    html += `<tr><td>${r.product_name}</td><td>${r.quantity}</td><td>${UI.fmtNum(r.single_price, 1)} ${u}</td><td>${UI.fmtNum(amt)} ${u}</td></tr>`;
     total += Number(amt);
   });
   html += `</tbody></table><h3 style="text-align:left;margin-top:20px;">الإجمالي: ${UI.fmtNum(total)} ${u}</h3>`;
