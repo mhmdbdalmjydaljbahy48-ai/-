@@ -205,7 +205,7 @@ deleteAllInvoices() {
   UI.modal({
     title: '🗑️ حذف فواتيري القديمة',
     content: `
-      <p class="mb-4 text-muted">اختر الفترة الزمنية لحذف فواتيرك الأقدم منها (لتوفير مساحة جهازك):</p>
+      <p class="mb-4 text-muted">⚠️ تحذير اذا لم يتم حذفها أقصى مده لابقائها هي شهر فقط وسيتم حذفها               اختر الفترة الزمنية لحذف فواتيرك الأقدم منها (لتوفير مساحة جهازك):</p>
       <div class="flex gap-2" style="flex-direction: column;">
         <button class="btn btn-block" onclick="Shop.confirmDeleteOldInvoices('30d')" style="background:#10B981; color:white; font-weight:bold;">🟢 حذف الأقدم من شهر</button>
         <button class="btn btn-block" onclick="Shop.confirmDeleteOldInvoices('7d')" style="background:#F59E0B; color:white; font-weight:bold;">🟡 حذف الأقدم من أسبوع</button>
