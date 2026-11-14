@@ -254,6 +254,7 @@ const Admin = {
             else if (act === 'reset') this.resetUser(num);
             else if (act === 'delete') this.deleteUser(num);
             else if (act === 'check') this.checkClientDetails(num);
+            else if (act === 'settle') this.settlePayment(num);
           };
         });
       }
