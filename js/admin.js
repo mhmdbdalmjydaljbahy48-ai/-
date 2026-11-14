@@ -304,7 +304,7 @@ const Admin = {
 
   extendAi(num) {
   UI.modal({
-    title: 'تمديد اشتراك المحلل الذكي',
+    title: 'تمديد اشتراك المحلل الذكي (صفحة جديدة)',
     content: `
       <div class="form-group"><label class="form-label">عدد الأشهر</label>
         <input class="form-input" type="number" id="extAiMonths" value="1" min="1"></div>
@@ -325,7 +325,9 @@ const Admin = {
         if (v <= 0) return UI.toast('أدخل عدداً صحيحاً', 'error');
         if (amt > total) return UI.toast('المدفوع لا يمكن أن يكون أكبر من الإجمالي', 'error');
         
+        // استدعاء الدالة المحدثة في db2.js
         DB.grantAiSubscription(num, { months: v, totalCost: total, amountPaid: amt });
+        
         DB.logAudit('ADMIN_EXTEND_AI', num, `+${v} months total=${total} paid=${amt}`);
         DB.addNotification(num, '🤖 تمديد البوت', `تم تمديد اشتراك المحلل الذكي بمقدار ${v} شهر.`, 'blue');
         UI.toast('✅ تم التمديد', 'success'); close(); this.render();
