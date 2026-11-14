@@ -491,7 +491,7 @@ confirmDeleteOldInvoices(timeframe) {
     let total = 0;
     for (const r of rows) { const amt = kind === 'd' ? r.debt_amount : r.total_amount; L.push(`${r.product_name} | ${r.quantity} × ${r.single_price} = ${UI.fmtNum(amt)} ${u}`); total += Number(amt); }
     L.push('------------------------------------',`الإجمالي: ${UI.fmtNum(total)} ${u}`,'====================================','        شكراً لتسوقكم معنا!         ');
-    const blob = new Blob([L.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob(['\uFEFF' + L.join('\n')], { type: 'text/plain;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Invoice_${invNum}.txt`; a.click(); URL.revokeObjectURL(a.href);
     UI.toast('✅ تم تحميل الفاتورة', 'success');
   },
