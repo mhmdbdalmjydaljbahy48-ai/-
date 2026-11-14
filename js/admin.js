@@ -493,135 +493,156 @@ const Admin = {
     document.getElementById('broadcastBody').value = '';
   },
 
-  checkClientDetails(num) {
-    try {
-      const c = DB.findClient(num);
-      if (!c) return alert('العميل غير موجود في الذاكرة المحلية. جرب تحديث الصفحة.');
 
-      const sysSub = DB.subscriptionStatus(c);
-      const isSysFree = (c.money === 0 || !c.money) && c.subscription_months <= 1;
-      
-      const aiSub = DB.getAiSubscriptionStatus(c);
-      const isAiFree = c.ai_trial_used && c.ai_subscription_months <= 1;
+checkClientDetails(num) {
+  try {
+    const c = DB.findClient(num);
+    if (!c) return alert('العميل غير موجود في الذاكرة المحلية. جرب تحديث الصفحة.');
 
-      let totalBytes = 0;
-      const keysToCheck = ['products', 'shop_customers', 'shop_debts', 'cash_sales', 'network_sales', 'personal_expenses', 'personal_income', 'personal_debts'];
-      keysToCheck.forEach(k => {
-         const data = DB.get(k, []).filter(x => Number(x.client_num) === Number(num));
-         try { totalBytes += new Blob([JSON.stringify(data)]).size; } catch(e) {}
-      });
-      const sizeStr = totalBytes < 1024 ? totalBytes + ' بايت' : (totalBytes / 1024).toFixed(1) + ' كيلوبايت';
+    const sysSub = DB.subscriptionStatus(c);
+    const isSysFree = (c.money === 0 || !c.money) && c.subscription_months <= 1;
+    
+    const aiSub = DB.getAiSubscriptionStatus(c);
+    const isAiFree = c.ai_trial_used && c.ai_subscription_months <= 1;
 
-      const monthsSinceCreation = Math.floor(DB.daysBetween(c.created_at || DB.now(), DB.now()) / 30) || 1;
+    // حساب المساحة المستهلكة
+    let totalBytes = 0;
+    const keysToCheck = ['products', 'shop_customers', 'shop_debts', 'cash_sales', 'network_sales', 'personal_expenses', 'personal_income', 'personal_debts'];
+    keysToCheck.forEach(k => {
+       const data = DB.get(k, []).filter(x => Number(x.client_num) === Number(num));
+       try { totalBytes += new Blob([JSON.stringify(data)]).size; } catch(e) {}
+    });
+    const sizeStr = totalBytes < 1024 ? totalBytes + ' بايت' : (totalBytes / 1024).toFixed(1) + ' كيلوبايت';
 
-      const allLogs = DB.get('audit_log', []);
-      const userLogins = allLogs.filter(l => Number(l.client_num) === Number(num) && l.action === 'LOGIN');
-      userLogins.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-      const lastVisit = userLogins.length ? userLogins[0].created_at : (c.created_at || DB.now());
+    const monthsSinceCreation = Math.floor(DB.daysBetween(c.created_at || DB.now(), DB.now()) / 30) || 1;
 
-      const subs = DB.getSubRequests().filter(r => Number(r.client_num) === Number(num) && r.status === 'APPROVED');
-      const sysSubs = subs.filter(s => s.type !== 'ai').sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-      const aiSubs = subs.filter(s => s.type === 'ai').sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    // سجل الزيارات والاشتراكات
+    const allLogs = DB.get('audit_log', []);
+    const userLogins = allLogs.filter(l => Number(l.client_num) === Number(num) && l.action === 'LOGIN');
+    userLogins.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    const lastVisit = userLogins.length ? userLogins[0].created_at : (c.created_at || DB.now());
 
-      const firstSysSub = sysSubs.length ? sysSubs[0].created_at : (c.start_date || c.created_at);
-      const lastSysSub = sysSubs.length ? sysSubs[sysSubs.length - 1].created_at : (c.created_at || DB.now());
-      
-      const firstAiSub = aiSubs.length ? aiSubs[0].created_at : (c.ai_expiry_date ? c.created_at : null);
-      const lastAiSub = aiSubs.length ? aiSubs[aiSubs.length - 1].created_at : (c.ai_expiry_date ? c.created_at : null);
+    const subs = DB.getSubRequests().filter(r => Number(r.client_num) === Number(num) && r.status === 'APPROVED');
+    const sysSubs = subs.filter(s => s.type !== 'ai').sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    const aiSubs = subs.filter(s => s.type === 'ai').sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
 
-      let totalAiPaid = 0;
-      aiSubs.forEach(s => totalAiPaid += Number(s.amount));
-      if (!totalAiPaid && c.ai_subscription_months > 0 && !isAiFree) totalAiPaid = c.ai_subscription_months * (DB.getSettings().ai_month_price || 0);
+    // ✅ حساب إجمالي الأشهر التاريخية (الاشتراك الأول + كل التجديدات)
+    let totalSysMonthsHistory = sysSubs.reduce((sum, req) => sum + Number(req.months), 0);
+    // إذا كان الحساب جديداً ولم يجدد، نضيف أشهر التجربة الأولى
+    if (sysSubs.length === 0 && c.subscription_months) totalSysMonthsHistory = c.subscription_months;
 
-      const sysMonthPrice = DB.getSettings().month_price || 0;
-      const aiMonthPrice = DB.getSettings().ai_month_price || 0;
-      
-      let sysRemainingMoney = 0;
-      if (sysSub.ok && sysSub.days !== null) sysRemainingMoney = (sysSub.days / 30) * sysMonthPrice;
-      
-      let aiRemainingMoney = 0;
-      if (aiSub.ok && aiSub.days !== null) aiRemainingMoney = (aiSub.days / 30) * aiMonthPrice;
+    let totalAiMonthsHistory = aiSubs.reduce((sum, req) => sum + Number(req.months), 0);
+    if (aiSubs.length === 0 && c.ai_subscription_months) totalAiMonthsHistory = c.ai_subscription_months;
+    if (c.ai_trial_used && totalAiMonthsHistory === 0) totalAiMonthsHistory = 1; // إذا استخدم التجربة فقط
 
-      const daysSinceVisit = DB.daysBetween(lastVisit, DB.now());
-      let activityColor = 'var(--success)'; 
-      let activityText = 'نشط (خلال 24 ساعة)';
-      
-      if (daysSinceVisit > 30) {
-        activityColor = 'var(--danger)'; 
-        activityText = 'خامل (أكثر من شهر)';
-      } else if (daysSinceVisit > 14) {
-        activityColor = '#F97316'; 
-        activityText = 'شبه خامل (أسبوعين)';
-      } else if (daysSinceVisit > 7) {
-        activityColor = 'var(--amber)'; 
-        activityText = 'متوسط (أسبوع)';
-      }
+    const firstSysSub = sysSubs.length ? sysSubs[0].created_at : (c.start_date || c.created_at);
+    const lastSysSub = sysSubs.length ? sysSubs[sysSubs.length - 1].created_at : (c.created_at || DB.now());
+    
+    const firstAiSub = aiSubs.length ? aiSubs[0].created_at : (c.ai_expiry_date ? c.created_at : null);
+    const lastAiSub = aiSubs.length ? aiSubs[aiSubs.length - 1].created_at : (c.ai_expiry_date ? c.created_at : null);
 
-      UI.modal({
-        title: `🔍 تقرير شامل: ${UI.esc(c.name)}`,
-        content: `
-          <div class="card mb-3" style="background:var(--bg-3); border: 1px solid var(--border-2); padding: 15px;">
-            <div class="flex-between mb-2">
-              <h4 class="text-amber mb-0">📄 اشتراك النظام</h4>
-              <span class="badge ${isSysFree ? 'badge-warn' : 'badge-success'}">${isSysFree ? 'مجاني' : 'مدفوع'}</span>
-            </div>
-            
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
-              <div><b>إجمالي المدفوع:</b> <span style="color:var(--success)">${UI.fmtNum(c.money || 0)}</span></div>
-              <div><b>المتبقي المالي:</b> <span style="color:var(--amber)">${UI.fmtNum(sysRemainingMoney)}</span></div>
-              <div><b>أنشأ الحساب:</b> ${UI.fmtDate(c.created_at)}</div>
-              <div><b>أول اشتراك:</b> ${UI.fmtDate(firstSysSub)}</div>
-              <div><b>آخر اشتراك:</b> ${UI.fmtDate(lastSysSub)}</div>
-              <div><b>عدد أشهر الاشتراك:</b> ${c.subscription_months || 0} شهر</div>
-              <div style="grid-column: span 2;"><b>الوقت المتبقي:</b> <span style="color:${sysSub.ok ? 'var(--success)' : 'var(--danger)'}">${UI.fmtRemaining(c.expiry_date)}</span></div>
-              <div style="grid-column: span 2;"><b>مدة عضويته:</b> ${monthsSinceCreation} شهر</div>
-            </div>
-          </div>
+    // حساب إجمالي مدفوعات البوت
+    let totalAiPaid = 0;
+    aiSubs.forEach(s => totalAiPaid += Number(s.amount));
+    if (!totalAiPaid && c.ai_subscription_months > 0 && !isAiFree) totalAiPaid = c.ai_subscription_months * (DB.getSettings().ai_month_price || 0);
 
-          <div class="card mb-3" style="background:var(--bg-3); border: 1px solid #3B82F6; padding: 15px;">
-            <div class="flex-between mb-2">
-              <h4 style="color:#60A5FA" class="mb-0">🤖 اشتراك المحلل الذكي</h4>
-              <span class="badge ${isAiFree ? 'badge-warn' : (c.ai_expiry_date ? 'badge-success' : 'badge-danger')}">${isAiFree ? 'مجاني (تجربة)' : (c.ai_expiry_date ? 'مدفوع' : 'غير مشترك')}</span>
-            </div>
-            
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
-              <div><b>إجمالي المدفوع:</b> <span style="color:var(--success)">${UI.fmtNum(totalAiPaid)}</span></div>
-              <div><b>المتبقي المالي:</b> <span style="color:var(--amber)">${UI.fmtNum(aiRemainingMoney)}</span></div>
-              <div><b>أول اشتراك:</b> ${firstAiSub ? UI.fmtDate(firstAiSub) : 'لا يوجد'}</div>
-              <div><b>آخر اشتراك:</b> ${lastAiSub ? UI.fmtDate(lastAiSub) : 'لا يوجد'}</div>
-              <div><b>عدد أشهر الاشتراك:</b> ${c.ai_subscription_months || 0} شهر</div>
-              <div><b>التجربة المجانية:</b> ${c.ai_trial_used ? 'استخدمها' : 'لم يستخدمها'}</div>
-              <div style="grid-column: span 2;"><b>الوقت المتبقي:</b> <span style="color:${aiSub.ok ? '#60A5FA' : 'var(--danger)'}">${c.ai_expiry_date ? UI.fmtRemaining(c.ai_expiry_date) : 'غير مشترك'}</span></div>
-            </div>
-          </div>
+    const sysMonthPrice = DB.getSettings().month_price || 0;
+    const aiMonthPrice = DB.getSettings().ai_month_price || 0;
+    
+    let sysRemainingMoney = 0;
+    if (sysSub.ok && sysSub.days !== null) sysRemainingMoney = (sysSub.days / 30) * sysMonthPrice;
+    
+    let aiRemainingMoney = 0;
+    if (aiSub.ok && aiSub.days !== null) aiRemainingMoney = (aiSub.days / 30) * aiMonthPrice;
 
-          <div class="card" style="background:var(--bg-3); padding: 15px;">
-            <h4 class="text-amber mb-3" style="font-size:1.05rem;">📊 إحصائيات الاستخدام</h4>
-            <div class="flex-between mb-2">
-              <span>مساحة التخزين المستهلكة:</span>
-              <b>${sizeStr}</b>
-            </div>
-            <div class="flex-between mb-2">
-              <span>آخر زيارة للموقع:</span>
-              <b>${UI.fmtDateTime(lastVisit)}</b>
-            </div>
-            <div class="flex-between mt-3" style="padding-top: 10px; border-top: 1px dashed var(--border-2);">
-              <span>حالة النشاط:</span>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size:0.85rem; color:${activityColor};">${activityText}</span>
-                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${activityColor}; box-shadow: 0 0 10px ${activityColor};"></div>
-              </div>
-            </div>
-          </div>
-        `,
-        onOpen: (el) => { el.style.maxWidth = '550px'; }
-      });
-      
-    } catch (error) {
-      alert("❌ حدث خطأ أثناء عرض البيانات: " + error.message);
-      console.error(error);
+    // حساب النشاط
+    const daysSinceVisit = DB.daysBetween(lastVisit, DB.now());
+    let activityColor = 'var(--success)'; 
+    let activityText = 'نشط (خلال 24 ساعة)';
+    
+    if (daysSinceVisit > 30) {
+      activityColor = 'var(--danger)'; 
+      activityText = 'خامل (أكثر من شهر)';
+    } else if (daysSinceVisit > 14) {
+      activityColor = '#F97316'; 
+      activityText = 'شبه خامل (أسبوعين)';
+    } else if (daysSinceVisit > 7) {
+      activityColor = 'var(--amber)'; 
+      activityText = 'متوسط (أسبوع)';
     }
-  },
+
+    UI.modal({
+      title: `🔍 تقرير شامل: ${UI.esc(c.name)}`,
+      content: `
+        <div class="card mb-3" style="background:var(--bg-3); border: 1px solid var(--border-2); padding: 15px;">
+          <div class="flex-between mb-2">
+            <h4 class="text-amber mb-0">📄 اشتراك النظام</h4>
+            <span class="badge ${isSysFree ? 'badge-warn' : 'badge-success'}">${isSysFree ? 'مجاني' : 'مدفوع'}</span>
+          </div>
+          
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
+            <div><b>إجمالي المدفوع:</b> <span style="color:var(--success)">${UI.fmtNum(c.money || 0)}</span></div>
+            <div><b>المتبقي المالي:</b> <span style="color:var(--amber)">${UI.fmtNum(sysRemainingMoney)}</span></div>
+            <div><b>أنشأ الحساب:</b> ${UI.fmtDate(c.created_at)}</div>
+            <div><b>أول اشتراك:</b> ${UI.fmtDate(firstSysSub)}</div>
+            <div><b>آخر اشتراك:</b> ${UI.fmtDate(lastSysSub)}</div>
+            
+            <!-- ✅ التعديل هنا: إظهار إجمالي الأشهر التاريخية -->
+            <div><b>إجمالي أشهر الاشتراك:</b> <span style="color:var(--info)">${totalSysMonthsHistory} شهر</span></div>
+            
+            <div style="grid-column: span 2;"><b>الوقت المتبقي:</b> <span style="color:${sysSub.ok ? 'var(--success)' : 'var(--danger)'}">${UI.fmtRemaining(c.expiry_date)}</span></div>
+            <div style="grid-column: span 2;"><b>مدة عضويته:</b> ${monthsSinceCreation} شهر</div>
+          </div>
+        </div>
+
+        <div class="card mb-3" style="background:var(--bg-3); border: 1px solid #3B82F6; padding: 15px;">
+          <div class="flex-between mb-2">
+            <h4 style="color:#60A5FA" class="mb-0">🤖 اشتراك المحلل الذكي</h4>
+            <span class="badge ${isAiFree ? 'badge-warn' : (c.ai_expiry_date ? 'badge-success' : 'badge-danger')}">${isAiFree ? 'مجاني (تجربة)' : (c.ai_expiry_date ? 'مدفوع' : 'غير مشترك')}</span>
+          </div>
+          
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
+            <div><b>إجمالي المدفوع:</b> <span style="color:var(--success)">${UI.fmtNum(totalAiPaid)}</span></div>
+            <div><b>المتبقي المالي:</b> <span style="color:var(--amber)">${UI.fmtNum(aiRemainingMoney)}</span></div>
+            <div><b>أول اشتراك:</b> ${firstAiSub ? UI.fmtDate(firstAiSub) : 'لا يوجد'}</div>
+            <div><b>آخر اشتراك:</b> ${lastAiSub ? UI.fmtDate(lastAiSub) : 'لا يوجد'}</div>
+            
+            <!-- ✅ التعديل هنا: إظهار إجمالي أشهر البوت التاريخية -->
+            <div><b>إجمالي أشهر البوت:</b> <span style="color:#60A5FA">${totalAiMonthsHistory} شهر</span></div>
+            
+            <div><b>التجربة المجانية:</b> ${c.ai_trial_used ? 'استخدمها' : 'لم يستخدمها'}</div>
+            <div style="grid-column: span 2;"><b>الوقت المتبقي:</b> <span style="color:${aiSub.ok ? '#60A5FA' : 'var(--danger)'}">${c.ai_expiry_date ? UI.fmtRemaining(c.ai_expiry_date) : 'غير مشترك'}</span></div>
+          </div>
+        </div>
+
+        <div class="card" style="background:var(--bg-3); padding: 15px;">
+          <h4 class="text-amber mb-3" style="font-size:1.05rem;">📊 إحصائيات الاستخدام</h4>
+          <div class="flex-between mb-2">
+            <span>مساحة التخزين المستهلكة:</span>
+            <b>${sizeStr}</b>
+          </div>
+          <div class="flex-between mb-2">
+            <span>آخر زيارة للموقع:</span>
+            <b>${UI.fmtDateTime(lastVisit)}</b>
+          </div>
+          <div class="flex-between mt-3" style="padding-top: 10px; border-top: 1px dashed var(--border-2);">
+            <span>حالة النشاط:</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:0.85rem; color:${activityColor};">${activityText}</span>
+              <div style="width: 16px; height: 16px; border-radius: 50%; background: ${activityColor}; box-shadow: 0 0 10px ${activityColor};"></div>
+            </div>
+          </div>
+        </div>
+      `,
+      onOpen: (el) => { el.style.maxWidth = '550px'; }
+    });
+    
+  } catch (error) {
+    alert("❌ حدث خطأ أثناء عرض البيانات: " + error.message);
+    console.error(error);
+  }
+},
+  
 
   showMassResetMenu() {
     UI.modal({
