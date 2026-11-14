@@ -643,10 +643,16 @@ let aiPaidAmount = c.current_ai_sub_paid || 0;
           </div>
           
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
-            <div><b>إجمالي المدفوع:</b> <span style="color:var(--success)">${UI.fmtNum(totalAiPaid)}</span></div>
-            <div><b>المتبقي المالي:</b> <span style="color:var(--amber)">${UI.fmtNum(aiRemainingMoney)}</span></div>
-            <div><b>أول اشتراك:</b> ${firstAiSub ? UI.fmtDate(firstAiSub) : 'لا يوجد'}</div>
-            <div><b>آخر اشتراك:</b> ${lastAiSub ? UI.fmtDate(lastAiSub) : 'لا يوجد'}</div>
+<div><b>إجمالي كل المدفوعات:</b> <span style="color:var(--success)">${UI.fmtNum(c.ai_money || 0)}</span></div>
+<div><b>المتبقي الحالي:</b> <span style="color:var(--danger); font-weight:bold">${UI.fmtNum(aiRemainingMoney)}</span></div>
+
+<div style="grid-column: span 2; background: rgba(59,130,246,0.1); padding: 8px; border-radius: 8px; margin-top:5px;">
+  <div class="flex-between"><span>إجمالي الاشتراك الحالي:</span><b>${UI.fmtNum(aiTotalCost)}</b></div>
+  <div class="flex-between"><span>ما دفعه في هذا الاشتراك:</span><b style="color:var(--success)">${UI.fmtNum(aiPaidAmount)}</b></div>
+</div>
+
+<div><b>أول اشتراك:</b> ${firstAiSub ? UI.fmtDate(firstAiSub) : 'لا يوجد'}</div>
+<div><b>آخر اشتراك:</b> ${lastAiSub ? UI.fmtDate(lastAiSub) : 'لا يوجد'}</div>
             
             <!-- ✅ السطر الذي طلبته للبوت -->
             <div style="grid-column: span 2; padding: 10px; background: rgba(59,130,246,0.1); border-radius: 8px; text-align:center; margin-top:5px;">
