@@ -182,6 +182,26 @@ const Admin = {
         <button class="btn btn-primary btn-block" id="btnConfirmApprove" style="background:${isAi ? '#3B82F6' : 'var(--amber)'}">تأكيد القبول والتفعيل</button>
       </div>
     `,
+
+    reject(id) {
+  UI.confirm({
+    title: '❌ تأكيد رفض الطلب',
+    message: 'هل أنت متأكد من رفض هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.',
+    danger: true,
+    onConfirm: () => {
+      try { 
+        DB.rejectSubRequest(id, this.client.num); 
+        UI.toast('✅ تم رفض الطلب بنجاح', 'success'); 
+        this.render(); 
+      }
+      catch(e) { 
+        UI.toast(e.message, 'error'); 
+      }
+    }
+  });
+},
+
+    
     onOpen: (el, close) => {
       el.querySelector('#btnConfirmApprove').onclick = () => {
         const paidAmount = Number(el.querySelector('#appPaidAmount').value) || 0;
