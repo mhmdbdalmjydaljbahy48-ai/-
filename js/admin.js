@@ -156,34 +156,73 @@ const Admin = {
   },
 
   approve(id) {
-    try {
-      const req = DB.getSubRequests().find(r => r.req_id === id);
-      if(req && req.type === 'ai') {
-         DB.grantAiSubscription(req.client_num, { months: req.months });
-         const c = DB.findClient(req.client_num);
-         DB.updateClient(req.client_num, { money: (c.money || 0) + req.amount });
-         
-         const reqs = DB.getSubRequests();
-         const idx = reqs.findIndex(r => r.req_id === Number(id));
-         if(idx > -1) {
-           reqs[idx].status = 'APPROVED';
-           reqs[idx].decided_at = DB.now();
-           reqs[idx].decided_by = this.client.num;
-           DB.set('sub_requests', reqs);
-           DB.cloudSync('sub_requests', id, reqs[idx]);
-         }
-         DB.addNotification(req.client_num, '✅ تم تفعيل اشتراك البوت', `تم تفعيل اشتراك المحلل الذكي لمدة ${req.months} شهر.`, 'blue');
-      } else {
-         DB.approveSubRequest(id, this.client.num); 
-      }
-      UI.toast('✅ تم التفعيل', 'success'); this.render();
+  const req = DB.getSubRequests().find(r => r.req_id === Number(id));
+  if (!req) return UI.toast('الطلب غير موجود', 'error');
+  
+  const c = DB.findClient(req.client_num);
+  if (!c) return UI.toast('العميل غير موجود', 'error');
+
+  const isAi = req.type === 'ai';
+  const typeName = isAi ? 'البوت' : 'النظام';
+  const totalAmount = Number(req.amount) || 0;
+
+  UI.modal({
+    title: `✅ قبول طلب تجديد (${typeName})`,
+    content: `
+      <div class="card mb-3" style="background:var(--bg-3); padding:15px;">
+        <div class="flex-between mb-2"><span>العميل:</span><b>${UI.esc(c.name)}</b></div>
+        <div class="flex-between mb-2"><span>المدة المطلوبة:</span><b>${req.months} شهر</b></div>
+        <div class="flex-between mb-2"><span>المبلغ الإجمالي للفاتورة:</span><b style="color:var(--amber)">${UI.fmtNum(totalAmount)}</b></div>
+        
+        <div class="form-group mt-3">
+          <label class="form-label" style="color:var(--success)">المبلغ الذي دفعه العميل (الآن)</label>
+          <input class="form-input" type="number" id="appPaidAmount" value="${totalAmount}" min="0">
+        </div>
+        
+        <button class="btn btn-primary btn-block" id="btnConfirmApprove" style="background:${isAi ? '#3B82F6' : 'var(--amber)'}">تأكيد القبول والتفعيل</button>
+      </div>
+    `,
+    onOpen: (el, close) => {
+      el.querySelector('#btnConfirmApprove').onclick = () => {
+        const paidAmount = Number(el.querySelector('#appPaidAmount').value) || 0;
+        if (paidAmount < 0 || paidAmount > totalAmount) {
+          return UI.toast('المبلغ المدفوع غير صحيح (لا يمكن أن يكون أكبر من الإجمالي)', 'error');
+        }
+
+        try {
+          if (isAi) {
+            // موافقة طلب البوت
+            DB.grantAiSubscription(req.client_num, { 
+              months: req.months, 
+              totalCost: totalAmount, 
+              amountPaid: paidAmount 
+            });
+            
+            // تحديث حالة الطلب
+            const reqs = DB.getSubRequests();
+            const idx = reqs.findIndex(r => r.req_id === Number(id));
+            reqs[idx].status = 'APPROVED';
+            reqs[idx].decided_at = DB.now();
+            reqs[idx].decided_by = this.client.num;
+            DB.set('sub_requests', reqs);
+            DB.cloudSync('sub_requests', id, reqs[idx]);
+            
+            DB.addNotification(req.client_num, '✅ تم تفعيل اشتراك البوت', `تم تفعيل اشتراك المحلل الذكي لمدة ${req.months} شهر.`, 'blue');
+          } else {
+            // موافقة طلب النظام (نمرر المبلغ الإجمالي والمدفوع)
+            DB.approveSubRequest(id, this.client.num, totalAmount, paidAmount);
+          }
+          
+          UI.toast('✅ تم التفعيل بنجاح', 'success');
+          close(); 
+          this.render();
+        } catch(e) { 
+          UI.toast(e.message, 'error'); 
+        }
+      };
     }
-    catch(e) { UI.toast(e.message, 'error'); }
-  },
-  reject(id) {
-    try { DB.rejectSubRequest(id, this.client.num); UI.toast('✅ تم الرفض', 'success'); this.render(); }
-    catch(e) { UI.toast(e.message, 'error'); }
-  },
+  });
+},
 
   renderUsers() {
     const users = DB.getAllClients();
