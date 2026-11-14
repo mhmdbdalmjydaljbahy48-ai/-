@@ -523,7 +523,7 @@ function createAiSubRequest({ client_num, months, amount }) {
   return id;
 }
 
-function grantAiSubscription(num, { months=0, reset=false }) {
+function grantAiSubscription(num, { months=0, reset=false, totalCost=0, amountPaid=0 }) {
   const client = findClient(num);
   if (!client) throw new Error('العميل غير موجود');
   
@@ -531,9 +531,19 @@ function grantAiSubscription(num, { months=0, reset=false }) {
   const d = new Date(base);
   d.setMonth(d.getMonth() + Number(months));
   
+  // حساب المتبقي المالي للبوت
+  const paidNow = Number(amountPaid || 0);
+  const remaining = Math.max(0, Number(totalCost) - paidNow);
+
   return updateClient(num, {
     ai_expiry_date: d.toISOString(),
-    ai_subscription_months: (reset ? 0 : (client.ai_subscription_months || 0)) + Number(months)
+    ai_subscription_months: (reset ? 0 : (client.ai_subscription_months || 0)) + Number(months),
+    
+    // ✅ الحقول المالية الجديدة للبوت
+    current_ai_sub_total: Number(totalCost),
+    current_ai_sub_paid: paidNow,
+    current_ai_sub_remaining: remaining,
+    ai_money: (client.ai_money || 0) + paidNow
   });
 }
 
