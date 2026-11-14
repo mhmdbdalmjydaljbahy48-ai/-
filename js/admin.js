@@ -232,7 +232,8 @@ const Admin = {
           <button class="btn btn-outline" data-act="ai_reset" style="border-color: #3B82F6; color: #3B82F6;">🚫 تصفير بوت</button>
           
           <button class="btn btn-outline" data-act="check" style="grid-column:span 2; border-color: var(--success); color: var(--success)">🔍 فحص اشتراك العميل</button>
-
+<!-- ✅ الزر الجديد هنا -->
+          <button class="btn btn-outline" data-act="settle" style="grid-column:span 2; border-color: #10B981; color: #10B981;">💵 تسديد المتبقي</button>
           <button class="btn btn-outline" data-act="contact" style="grid-column:span 2; border-color: #3B82F6; color: #3B82F6;">📞 التواصل مع العميل</button>
 
           <button class="btn btn-danger" data-act="reset" style="grid-column:span 2">🔄 تصفير البيانات</button>
