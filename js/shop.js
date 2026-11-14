@@ -32,6 +32,172 @@ const Shop = {
     this.updateCalcRates();
   },
 
+// 1. عرض قائمة الفواتير
+renderInvoicesLog() {
+  const cash = DB.getCashSales(this.client.num).map(s => ({...s, kind: 'c'}));
+  const network = DB.getNetworkSales(this.client.num).map(s => ({...s, kind: 'n'}));
+  const debts = DB.getShopDebts(this.client.num).map(s => ({...s, kind: 'd', total_amount: s.debt_amount, sale_date: s.debt_date}));
+  
+  let allInvoices = [...cash, ...network, ...debts];
+  
+  // تجميع الفواتير التي تحمل نفس الرقم (لأن الفاتورة قد تحتوي على عدة منتجات)
+  const grouped = {};
+  allInvoices.forEach(s => {
+    if (!grouped[s.invoice_num]) {
+      grouped[s.invoice_num] = {
+        invNum: s.invoice_num,
+        kind: s.kind,
+        date: s.sale_date,
+        customerName: s.customer_name || 'عميل عام',
+        customerPhone: s.customer_phone || '—',
+        total: 0,
+        items: []
+      };
+    }
+    grouped[s.invoice_num].total += Number(s.total_amount);
+    grouped[s.invoice_num].items.push(s);
+  });
+
+  // تحويلها لمصفوفة وترتيبها من الأحدث للأقدم
+  this._allGroupedInvoices = Object.values(grouped).sort((a,b) => new Date(b.date) - new Date(a.date));
+  this.filterInvoices('');
+},
+
+// 2. البحث في الفواتير
+filterInvoices(query) {
+  const q = (query || '').toLowerCase().trim();
+  const filtered = this._allGroupedInvoices.filter(inv => {
+    return String(inv.invNum).includes(q) || 
+           inv.customerName.toLowerCase().includes(q) || 
+           String(inv.customerPhone).includes(q);
+  });
+
+  const box = document.getElementById('invoicesListContainer');
+  if (!filtered.length) {
+    box.innerHTML = '<p class="text-muted text-center mt-3">لا توجد فواتير مطابقة للبحث.</p>';
+    return;
+  }
+
+  box.innerHTML = filtered.map(inv => `
+    <div class="card mb-2" style="background:var(--bg-3); border-right: 4px solid ${inv.kind === 'c' ? 'var(--success)' : inv.kind === 'n' ? 'var(--info)' : 'var(--danger)'}">
+      <div class="flex-between" style="flex-wrap:wrap; gap:10px;">
+        <div>
+          <b style="color:var(--amber)">#${inv.invNum}</b> - ${inv.customerName} (${inv.customerPhone})
+          <div style="font-size:0.85rem; color:var(--text-2)">${UI.fmtDateTime(inv.date)}</div>
+        </div>
+        <div style="font-size:1.2rem; font-weight:900; color:var(--amber)">${UI.fmtNum(inv.total)}</div>
+      </div>
+      <div class="flex gap-2 mt-3" style="border-top:1px solid var(--border-2); padding-top:10px;">
+        <button class="btn btn-sm btn-outline" onclick="Shop.printInvoice('${inv.kind}', ${inv.invNum})" style="flex:1;"><i data-lucide="printer"></i> طباعة</button>
+        <button class="btn btn-sm btn-outline" onclick="Shop.downloadInvoice('${inv.kind}', ${inv.invNum})" style="flex:1;"><i data-lucide="download"></i> حفظ</button>
+        <button class="btn btn-sm btn-primary" onclick="Shop.shareInvoice('${inv.kind}', ${inv.invNum})" style="flex:1;"><i data-lucide="share-2"></i> مشاركة</button>
+        <button class="btn btn-sm btn-danger" onclick="Shop.deleteInvoice('${inv.kind}', ${inv.invNum})" style="flex:1;"><i data-lucide="trash-2"></i> حذف</button>
+      </div>
+    </div>
+  `).join('');
+  UI.fixIcons();
+},
+
+// 3. دالة الطباعة
+printInvoice(kind, invNum) {
+  const rows = kind === 'd' ? DB.getShopDebts(this.client.num).filter(d => d.invoice_num === invNum)
+    : kind === 'c' ? DB.getCashSales(this.client.num).filter(s => s.invoice_num === invNum)
+    : DB.getNetworkSales(this.client.num).filter(s => s.invoice_num === invNum);
+  if (!rows.length) return UI.toast('الفاتورة غير موجودة', 'error');
+  
+  const u = UI.unitOf(this.client); const shop = this.client.shop_name || this.client.name;
+  let printWindow = window.open('', '_blank');
+  let html = `<html dir="rtl"><head><title>فاتورة ${invNum}</title><style>body{font-family:Tajawal,sans-serif;padding:20px;} table{width:100%;border-collapse:collapse;margin-top:20px;} th,td{border:1px solid #ddd;padding:10px;text-align:right;} th{background:#f4f4f4;}</style></head><body>`;
+  html += `<h2 style="text-align:center;">${shop}</h2><h4 style="text-align:center;">فاتورة مبيعات #${invNum}</h4>`;
+  html += `<p><b>العميل:</b> ${rows[0].customer_name} | <b>التاريخ:</b> ${UI.fmtDateTime(rows[0].sale_date || rows[0].debt_date)}</p>`;
+  html += `<table><thead><tr><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead><tbody>`;
+  let total = 0;
+  rows.forEach(r => {
+    const amt = kind === 'd' ? r.debt_amount : r.total_amount;
+    html += `<tr><td>${r.product_name}</td><td>${r.quantity}</td><td>${r.single_price} ${u}</td><td>${UI.fmtNum(amt)} ${u}</td></tr>`;
+    total += Number(amt);
+  });
+  html += `</tbody></table><h3 style="text-align:left;margin-top:20px;">الإجمالي: ${UI.fmtNum(total)} ${u}</h3>`;
+  html += `</body></html>`;
+  
+  printWindow.document.write(html);
+  printWindow.document.close();
+  setTimeout(() => { printWindow.print(); }, 500);
+},
+
+// 4. دالة المشاركة (للموبايل)
+async shareInvoice(kind, invNum) {
+  if (!navigator.share) return UI.toast('متصفحك لا يدعم ميزة المشاركة.', 'error');
+  
+  const rows = kind === 'd' ? DB.getShopDebts(this.client.num).filter(d => d.invoice_num === invNum)
+    : kind === 'c' ? DB.getCashSales(this.client.num).filter(s => s.invoice_num === invNum)
+    : DB.getNetworkSales(this.client.num).filter(s => s.invoice_num === invNum);
+    
+  const u = UI.unitOf(this.client); const shop = this.client.shop_name || this.client.name;
+  let text = `فاتورة مبيعات من: ${shop}\nرقم الفاتورة: ${invNum}\nالعميل: ${rows[0].customer_name}\nالتاريخ: ${UI.fmtDateTime(rows[0].sale_date || rows[0].debt_date)}\n------------------------------------\n`;
+  let total = 0;
+  rows.forEach(r => { const amt = kind === 'd' ? r.debt_amount : r.total_amount; text += `${r.product_name} | ${r.quantity} × ${r.single_price} = ${UI.fmtNum(amt)} ${u}\n`; total += Number(amt); });
+  text += `------------------------------------\nالإجمالي: ${UI.fmtNum(total)} ${u}\nشكراً لتسوقكم معنا!`;
+
+  try {
+    const file = new File([text], `Invoice_${invNum}.txt`, { type: 'text/plain' });
+    await navigator.share({ files: [file], title: `فاتورة #${invNum}`, text: text });
+  } catch(e) {
+    if(e.name !== 'AbortError') UI.toast('حدث خطأ أثناء المشاركة', 'error');
+  }
+},
+
+// 5. حذف فاتورة واحدة
+deleteInvoice(kind, invNum) {
+  UI.confirm({
+    title: 'حذف الفاتورة',
+    message: 'هل أنت متأكد من حذف هذه الفاتورة نهائياً؟ سيتم إرجاع الكميات للمخزون.',
+    danger: true,
+    onConfirm: () => {
+      const rows = kind === 'd' ? DB.getShopDebts(this.client.num).filter(d => d.invoice_num === invNum)
+        : kind === 'c' ? DB.getCashSales(this.client.num).filter(s => s.invoice_num === invNum)
+        : DB.getNetworkSales(this.client.num).filter(s => s.invoice_num === invNum);
+      
+      // إرجاع الكميات للمخزون
+      rows.forEach(r => {
+        const p = DB.findProductByName(r.product_name);
+        if (p) DB.updateProduct(p.product_id, { quantity: (p.quantity || 0) + Number(r.quantity) });
+      });
+
+      if (kind === 'c') {
+        let sales = DB.getCashSales(this.client.num).filter(s => s.invoice_num !== invNum);
+        DB.set(DB.KEYS.cashSales, DB.get(DB.KEYS.cashSales, []).filter(s => !(s.client_num === this.client.num && s.invoice_num === invNum)));
+      } else if (kind === 'n') {
+        DB.set(DB.KEYS.networkSales, DB.get(DB.KEYS.networkSales, []).filter(s => !(s.client_num === this.client.num && s.invoice_num === invNum)));
+      } else {
+        DB.set(DB.KEYS.shopDebts, DB.get(DB.KEYS.shopDebts, []).filter(s => !(s.client_num === this.client.num && s.invoice_num === invNum)));
+      }
+
+      // مزامنة الحذف مع السحابة (تحتاج تعديل بسيط في الكود لاحقاً إن أردت)
+      UI.toast('✅ تم حذف الفاتورة وإرجاع الكمية', 'success');
+      this.renderInvoicesLog();
+      this.renderProducts();
+      this.loadProductsSelect();
+    }
+  });
+},
+
+// 6. حذف جميع الفواتير
+deleteAllInvoices() {
+  UI.confirm({
+    title: '⚠️ حذف جميع الفواتير',
+    message: 'هل أنت متأكد من حذف جميع الفواتير نهائياً؟ لا يمكن التراجع وسيتم مسح سجل المبيعات بالكامل!',
+    danger: true,
+    onConfirm: () => {
+      DB.set(DB.KEYS.cashSales, DB.get(DB.KEYS.cashSales, []).filter(s => s.client_num !== this.client.num));
+      DB.set(DB.KEYS.networkSales, DB.get(DB.KEYS.networkSales, []).filter(s => s.client_num !== this.client.num));
+      DB.set(DB.KEYS.shopDebts, DB.get(DB.KEYS.shopDebts, []).filter(s => s.client_num !== this.client.num));
+      UI.toast('🗑️ تم مسح جميع الفواتير بنجاح', 'success');
+      this.renderInvoicesLog();
+    }
+  });
+},
+  
   // ═══════════════════════════════════════════════════════════
   //                    دوال الباركود
   // ═══════════════════════════════════════════════════════════
