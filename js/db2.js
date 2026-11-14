@@ -531,7 +531,6 @@ function grantAiSubscription(num, { months=0, reset=false, totalCost=0, amountPa
   const d = new Date(base);
   d.setMonth(d.getMonth() + Number(months));
   
-  // حساب المتبقي المالي للبوت
   const paidNow = Number(amountPaid || 0);
   const remaining = Math.max(0, Number(totalCost) - paidNow);
 
@@ -539,14 +538,13 @@ function grantAiSubscription(num, { months=0, reset=false, totalCost=0, amountPa
     ai_expiry_date: d.toISOString(),
     ai_subscription_months: (reset ? 0 : (client.ai_subscription_months || 0)) + Number(months),
     
-    // ✅ الحقول المالية الجديدة للبوت
+    // ✅ الحقول الجديدة
     current_ai_sub_total: Number(totalCost),
     current_ai_sub_paid: paidNow,
     current_ai_sub_remaining: remaining,
     ai_money: (client.ai_money || 0) + paidNow
   });
 }
-
 function resetAiSubscription(num) {
   return updateClient(num, { ai_expiry_date: null, ai_subscription_months: 0 });
 }
