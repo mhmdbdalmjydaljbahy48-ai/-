@@ -303,24 +303,36 @@ const Admin = {
 },
 
   extendAi(num) {
-    UI.modal({
-      title: 'تمديد اشتراك المحلل الذكي',
-      content: `
-        <div class="form-group"><label class="form-label">عدد الأشهر</label>
-          <input class="form-input" type="number" id="extAiMonths" value="1" min="1"></div>
-        <button class="btn btn-primary btn-block" id="btnExtAi" style="background:#3B82F6; border-color:#3B82F6">تمديد البوت</button>`,
-      onOpen: (el, close) => {
-        el.querySelector('#btnExtAi').onclick = () => {
-          const v = Number(el.querySelector('#extAiMonths').value);
-          if (v <= 0) return UI.toast('أدخل عدداً صحيحاً', 'error');
-          DB.grantAiSubscription(num, { months: v });
-          DB.logAudit('ADMIN_EXTEND_AI', num, `+${v} months`);
-          DB.addNotification(num, '🤖 تمديد البوت', `تم تمديد اشتراك المحلل الذكي بمقدار ${v} شهر.`, 'blue');
-          UI.toast('✅ تم التمديد', 'success'); close(); this.render();
-        };
-      }
-    });
-  },
+  UI.modal({
+    title: 'تمديد اشتراك المحلل الذكي',
+    content: `
+      <div class="form-group"><label class="form-label">عدد الأشهر</label>
+        <input class="form-input" type="number" id="extAiMonths" value="1" min="1"></div>
+      
+      <div class="form-group"><label class="form-label">المبلغ الإجمالي المطلوب</label>
+        <input class="form-input" type="number" id="extAiTotalCost" value="0" min="0"></div>
+
+      <div class="form-group"><label class="form-label">المبلغ المدفوع الآن</label>
+        <input class="form-input" type="number" id="extAiPaid" value="0" min="0"></div>
+
+      <button class="btn btn-primary btn-block" id="btnExtAi" style="background:#3B82F6; border-color:#3B82F6">حفظ اشتراك البوت</button>`,
+    onOpen: (el, close) => {
+      el.querySelector('#btnExtAi').onclick = () => {
+        const v = Number(el.querySelector('#extAiMonths').value);
+        const total = Number(el.querySelector('#extAiTotalCost').value) || 0;
+        const amt = Number(el.querySelector('#extAiPaid').value) || 0;
+        
+        if (v <= 0) return UI.toast('أدخل عدداً صحيحاً', 'error');
+        if (amt > total) return UI.toast('المدفوع لا يمكن أن يكون أكبر من الإجمالي', 'error');
+        
+        DB.grantAiSubscription(num, { months: v, totalCost: total, amountPaid: amt });
+        DB.logAudit('ADMIN_EXTEND_AI', num, `+${v} months total=${total} paid=${amt}`);
+        DB.addNotification(num, '🤖 تمديد البوت', `تم تمديد اشتراك المحلل الذكي بمقدار ${v} شهر.`, 'blue');
+        UI.toast('✅ تم التمديد', 'success'); close(); this.render();
+      };
+    }
+  });
+},
 
   resetAi(num) {
     UI.confirm({ title: 'تصفير البوت', message: 'سيتم إيقاف اشتراك البوت فوراً. متابعة؟', danger: true, onConfirm: () => {
