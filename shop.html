@@ -273,6 +273,21 @@
         </div>
         <div id="reportOutput"></div>
       </div>
+
+      <!-- ✅ قسم سجل الفواتير الجديد -->
+<div class="tab-content" id="tab-invoices">
+  <div class="card mb-3">
+    <div class="flex-between mb-3" style="flex-wrap: wrap; gap: 10px;">
+      <h3 class="card-title mb-0">🧾 أرشيف فواتير العملاء</h3>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+         <input type="text" class="form-input" id="searchInvoices" placeholder="🔍 ابحث برقم الفاتورة، اسم العميل، أو الهاتف..." style="min-width: 250px;" oninput="Shop.filterInvoices(this.value)">
+         <button class="btn btn-danger btn-sm" onclick="Shop.deleteAllInvoices()" style="background:#dc3545; color:white;">🗑️ حذف جميع الفواتير</button>
+      </div>
+    </div>
+    <div id="invoicesListContainer" style="max-height: 600px; overflow-y: auto;"></div>
+  </div>
+</div>
+      
     </div>
   </main>
 
