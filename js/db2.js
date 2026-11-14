@@ -671,35 +671,51 @@ function resetAiSubscription(num) {
   function getSubRequests() { const a = get(KEYS.subRequests, []); return Array.isArray(a) ? a : []; }
   function pendingSubRequests() { return getSubRequests().filter(r => r.status === 'PENDING'); }
 
-  function approveSubRequest(reqId, byUser) {
-    const reqs = getSubRequests();
-    const idx = reqs.findIndex(r => r.req_id === Number(reqId));
-    if (idx < 0) throw new Error('الطلب غير موجود');
-    if (reqs[idx].status !== 'PENDING') throw new Error('الطلب معالج مسبقاً');
-    const client = findClient(reqs[idx].client_num);
-    if (!client) throw new Error('العميل غير موجود');
-    const r = reqs[idx];
-    const nowDate = now();
-    const isExpired = daysBetween(nowDate, client.expiry_date) < 0;
-    let newStart = client.start_date, newMonths = r.months;
-    if (isExpired) newStart = nowDate;
-    else newMonths = (client.subscription_months || 0) + r.months;
-    updateClient(r.client_num, {
-      subscription_months: newMonths, subscription_duration: durationLabel(newMonths),
-      start_date: newStart, expiry_date: addMonths(newStart, newMonths),
-      money: (client.money || 0) + r.amount, is_active: 1,
-      last_reminder_kind: null, last_reminder_at: null,
-    });
-    reqs[idx].status = 'APPROVED';
-    reqs[idx].decided_at = nowDate;
-    reqs[idx].decided_by = byUser || null;
-    set(KEYS.subRequests, reqs);
-    cloudSync('sub_requests', reqId, reqs[idx]);
-    addNotification(r.client_num, '✅ تم تفعيل اشتراكك',
-      `تم تفعيل اشتراكك لمدة ${durationLabel(r.months)}. ينتهي في ${new Date(addMonths(newStart, newMonths)).toLocaleDateString('ar-EG')}.`, 'green');
-    logAudit('SUB_APPROVED', r.client_num, `req=${reqId}`);
-    return r;
+  function approveSubRequest(reqId, byUser, totalCost, amountPaid) {
+  const reqs = get(KEYS.subRequests, []);
+  const idx = reqs.findIndex(r => r.req_id === Number(reqId));
+  if (idx < 0) throw new Error('الطلب غير موجود');
+  if (reqs[idx].status !== 'PENDING') throw new Error('الطلب معالج مسبقاً');
+  const client = findClient(reqs[idx].client_num);
+  if (!client) throw new Error('العميل غير موجود');
+  const r = reqs[idx];
+  const nowDate = now();
+  const isExpired = daysBetween(nowDate, client.expiry_date) < 0;
+  let newStart = client.start_date, newMonths = r.months;
+  if (isExpired) newStart = nowDate;
+  else newMonths = (client.subscription_months || 0) + r.months;
+
+  // ✅ استخدام المبالغ الممررة أو القيمة الافتراضية
+  const finalTotal = totalCost !== undefined ? totalCost : r.amount;
+  const finalPaid = amountPaid !== undefined ? amountPaid : r.amount;
+  const finalRemaining = Math.max(0, finalTotal - finalPaid);
+
+  updateClient(r.client_num, {
+    subscription_months: newMonths, subscription_duration: durationLabel(newMonths),
+    start_date: newStart, expiry_date: addMonths(newStart, newMonths),
+    
+    // ✅ الحقول المالية الجديدة
+    current_sub_total: finalTotal,
+    current_sub_paid: finalPaid,
+    current_sub_remaining: finalRemaining,
+    
+    money: (client.money || 0) + finalPaid, is_active: 1,
+    last_reminder_kind: null, last_reminder_at: null,
+  });
+
+  reqs[idx].status = 'APPROVED';
+  reqs[idx].decided_at = nowDate;
+  reqs[idx].decided_by = byUser || null;
+  set(KEYS.subRequests, reqs);
+  cloudSync('sub_requests', reqId, reqs[idx]);
+  addNotification(r.client_num, '✅ تم تفعيل اشتراكك',
+    `تم تفعيل اشتراكك لمدة ${durationLabel(r.months)}. ينتهي في ${new Date(addMonths(newStart, newMonths)).toLocaleDateString('ar-EG')}.`, 'green');
+  logAudit('SUB_APPROVED', r.client_num, `req=${reqId}`);
+  return r;
   }
+
+
+   
   function rejectSubRequest(reqId, byUser) {
     const reqs = getSubRequests();
     const idx = reqs.findIndex(r => r.req_id === Number(reqId));
