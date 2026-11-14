@@ -281,6 +281,8 @@
       <h3 class="card-title mb-0">🧾 أرشيف فواتير العملاء</h3>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
          <input type="text" class="form-input" id="searchInvoices" placeholder="🔍 ابحث برقم الفاتورة، اسم العميل، أو الهاتف..." style="min-width: 250px;" oninput="Shop.filterInvoices(this.value)">
+        <!-- ✅ زر حذف الفواتير القديمة للعميل -->
+               <button class="btn btn-warning btn-sm" onclick="Shop.showDeleteOldInvoicesMenu()" style="color:#000; font-weight:bold;">⏳ حذف القديم</button>
          <button class="btn btn-danger btn-sm" onclick="Shop.deleteAllInvoices()" style="background:#dc3545; color:white;">🗑️ حذف جميع الفواتير</button>
       </div>
     </div>
