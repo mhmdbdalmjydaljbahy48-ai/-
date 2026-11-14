@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   ✨️ FT — طبقة البيانات — النسخة النهائية (v20)
+   ✨️ FT — طبقة البيانات — النسخة النهائية (v21) - إصلاح التصفير
    ═══════════════════════════════════════════════════════════ */
 
 const DB = (() => {
@@ -34,7 +34,6 @@ const DB = (() => {
   let firestore = null;
   let firebaseReady = false;
 
-  // دالة آمنة لتحميل المكتبات
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
@@ -69,10 +68,10 @@ const DB = (() => {
         let query = firestore.collection(col);
         const userEmail = firebase.auth().currentUser ? firebase.auth().currentUser.email : '';
         if (userEmail !== 'mhmdbdalmjydaljbahy48@gmail.com') {
-        if (col !== 'pending_clients' && col !== 'settings' && col !== 'rates' && col !== 'notifications' && col !== 'clients') {
-    query = query.where('userId', '==', uid);
+          if (col !== 'pending_clients' && col !== 'settings' && col !== 'rates' && col !== 'notifications' && col !== 'clients') {
+            query = query.where('userId', '==', uid);
+          }
         }
-            }
         
         query.onSnapshot(snapshot => {
           const data = [];
@@ -118,7 +117,7 @@ const DB = (() => {
 
   async function cloudSync(col, docId, data) {
     if (!firestore) {
-      console.error("خطأ فادح: متغير firestore فارغ! الكود لم يكمل التهيئة بعد."); 
+      console.error("خطأ فادح: متغير firestore فارغ!"); 
       return;
     }
     try {
@@ -134,7 +133,7 @@ const DB = (() => {
         await firestore.collection(col).doc(String(docId)).set(dataToSave, { merge: true });
       }
     } catch (e) {
-  console.error("Cloud sync error:", e);
+      console.error("Cloud sync error:", e);
     }
   }
 
@@ -217,7 +216,7 @@ const DB = (() => {
   }
 
   const DEFAULT_SETTINGS = {
-    month_price: 0, trial_months: 1,
+    month_price: 0, trial_months: 1, ai_month_price: 0,
     registration_mode: 'first_only',
     email_suffix: '.com',
     support_phone_1: '738439579', support_phone_2: '785068462',
@@ -265,15 +264,10 @@ const DB = (() => {
   function getAdminList() {
     const list = get(KEYS.adminList, null);
     if (list && Array.isArray(list) && list.length > 0) return list;
-    
     const masterNum = 770712071;
     const client = findClient(masterNum);
     let initial = [];
-    
-    if (client) {
-      initial = [masterNum];
-    }
-    
+    if (client) { initial = [masterNum]; }
     set(KEYS.adminList, initial);
     return initial;
   }
@@ -347,9 +341,10 @@ const DB = (() => {
       account_type: account_type || null, shop_name: shop_name || null,
       activity_type: activity_type || null, location: location || null,
       shop_location: shop_location || null, currency: currency || null,
-       ai_expiry_date: null, // تاريخ انتهاء اشتراك البوت
-ai_subscription_months: 0, // عدد أشهر البوت
-ai_trial_used: false, // هل استخدم التجربة المجانية؟
+      ai_expiry_date: null, ai_subscription_months: 0, ai_trial_used: false,
+      current_sub_total: 0, current_sub_paid: 0, current_sub_remaining: 0,
+      current_ai_sub_total: 0, current_ai_sub_paid: 0, current_ai_sub_remaining: 0,
+      ai_money: 0,
       created_at: now()
     };
 
@@ -459,14 +454,10 @@ ai_trial_used: false, // هل استخدم التجربة المجانية؟
   }
 
   function purgeClientData(num) {
-    const tables = [
-      'products',
-      'shop_customers','shop_debts','cash_sales','network_sales','imports',
+    const tables = ['products','shop_customers','shop_debts','cash_sales','network_sales','imports',
       'personal_expenses','personal_income','personal_debts','personal_debt_payments',
       'personal_notes','personal_goals','personal_obligations','sub_requests',
-      'debt_archive','notifications','payment_proofs',
-      'audit_log'
-    ];
+      'debt_archive','notifications','payment_proofs','audit_log'];
     tables.forEach(k => {
       const toDelete = get(k, []).filter(r => Number(r.client_num) === Number(num));
       toDelete.forEach(r => {
@@ -477,108 +468,100 @@ ai_trial_used: false, // هل استخدم التجربة المجانية؟
     });
   }
 
-
-// --- دوال اشتراك الذكاء الاصطناعي (البوت) ---
-function getAiSubscriptionStatus(client) {
-  if (!client || !client.ai_expiry_date) return { ok: false, days: null, expired: true };
-  const dl = daysBetween(now(), client.ai_expiry_date);
-  return { ok: dl >= 0, days: dl, expired: dl < 0, expiry: client.ai_expiry_date };
-}
-
-async function requestAiTrial(num) {
-  // ✅ الفحص السحابي المباشر: منع الغش
-  if (firestore) {
-    const doc = await firestore.collection('clients').doc(String(num)).get();
-    if (doc.exists) {
-      const cloudClient = doc.data();
-      if (cloudClient.ai_trial_used) return false; // إذا كان استخدمها في السحابة، ارفض فوراً
-    }
+  // --- دوال اشتراك الذكاء الاصطناعي (البوت) ---
+  function getAiSubscriptionStatus(client) {
+    if (!client || !client.ai_expiry_date) return { ok: false, days: null, expired: true };
+    const dl = daysBetween(now(), client.ai_expiry_date);
+    return { ok: dl >= 0, days: dl, expired: dl < 0, expiry: client.ai_expiry_date };
   }
 
-  const c = findClient(num);
-  if (!c) return false;
-  if (c.ai_trial_used) return false; 
-  
-  const expiry = addMonths(now(), 1);
-  updateClient(num, { 
-    ai_expiry_date: expiry, 
-    ai_subscription_months: 1, 
-    ai_trial_used: true 
-  });
-  logAudit('AI_TRIAL', num, 'Used free AI trial');
-  return true;
-}
-
-function createAiSubRequest({ client_num, months, amount }) {
-  const reqs = get(KEYS.subRequests, []);
-  const id = generateId();
-  const req = { 
-    req_id: id, client_num: Number(client_num), months: Number(months), 
-    amount: Number(amount), type: 'ai', // نوع الطلب: بوت
-    status: 'PENDING', created_at: now(), 
-    decided_at: null, decided_by: null 
-  };
-  reqs.unshift(req); set(KEYS.subRequests, reqs); cloudSync('sub_requests', id, req);
-  logAudit('AI_SUB_REQUEST', client_num, `req=${id}`);
-  return id;
-}
-
-function grantAiSubscription(num, { months=0, reset=false, totalCost=0, amountPaid=0 }) {
-  const client = findClient(num);
-  if (!client) throw new Error('العميل غير موجود');
-  
-  const base = reset ? now() : (client.ai_expiry_date && new Date(client.ai_expiry_date) > new Date() ? client.ai_expiry_date : now());
-  const d = new Date(base);
-  d.setMonth(d.getMonth() + Number(months));
-  
-  const paidNow = Number(amountPaid || 0);
-  const remaining = Math.max(0, Number(totalCost) - paidNow);
-
-  return updateClient(num, {
-    ai_expiry_date: d.toISOString(),
-    ai_subscription_months: (reset ? 0 : (client.ai_subscription_months || 0)) + Number(months),
-    
-    // ✅ الحقول الجديدة
-    current_ai_sub_total: Number(totalCost),
-    current_ai_sub_paid: paidNow,
-    current_ai_sub_remaining: remaining,
-    ai_money: (client.ai_money || 0) + paidNow
-  });
-}
-function resetAiSubscription(num) {
-  return updateClient(num, { ai_expiry_date: null, ai_subscription_months: 0 });
-}
-
-
-   function massResetFree(type, excludeNums = []) {
-  let clients = getAllClients();
-  clients.forEach(c => {
-    if (excludeNums.includes(Number(c.num))) return;
-    
-    if (type === 'main') {
-      // إذا كان اشتراك النظام مجاني (شهر واحد) ولم يدفع
-      if (c.subscription_months === 1 && (c.money === 0 || !c.money)) {
-        c.expiry_date = new Date(Date.now() - 86400000).toISOString();
-        c.subscription_months = 0;
-        changed = true;
-        cloudSync('clients', c.num, c);
-      }
-    } else if (type === 'ai') {
-      // إذا كان اشتراك البوت مجاني (شهر تجريبي)
-      if (c.ai_trial_used && c.ai_subscription_months <= 1) {
-        c.ai_expiry_date = null;
-        c.ai_subscription_months = 0;
-        c.ai_trial_used = false; // إعادة تصفير التجربة
-        changed = true;
-        cloudSync('clients', c.num, c);
+  async function requestAiTrial(num) {
+    if (firestore) {
+      const doc = await firestore.collection('clients').doc(String(num)).get();
+      if (doc.exists) {
+        const cloudClient = doc.data();
+        if (cloudClient.ai_trial_used) return false; 
       }
     }
-  });
-  if (changed) set(KEYS.clients, clients);
-  return true;
-   }
+    const c = findClient(num);
+    if (!c) return false;
+    if (c.ai_trial_used) return false; 
+    
+    const expiry = addMonths(now(), 1);
+    updateClient(num, { 
+      ai_expiry_date: expiry, 
+      ai_subscription_months: 1, 
+      ai_trial_used: true 
+    });
+    logAudit('AI_TRIAL', num, 'Used free AI trial');
+    return true;
+  }
 
-   
+  function createAiSubRequest({ client_num, months, amount }) {
+    const reqs = get(KEYS.subRequests, []);
+    const id = generateId();
+    const req = { 
+      req_id: id, client_num: Number(client_num), months: Number(months), 
+      amount: Number(amount), type: 'ai',
+      status: 'PENDING', created_at: now(), 
+      decided_at: null, decided_by: null 
+    };
+    reqs.unshift(req); set(KEYS.subRequests, reqs); cloudSync('sub_requests', id, req);
+    logAudit('AI_SUB_REQUEST', client_num, `req=${id}`);
+    return id;
+  }
+
+  function grantAiSubscription(num, { months=0, reset=false, totalCost=0, amountPaid=0 }) {
+    const client = findClient(num);
+    if (!client) throw new Error('العميل غير موجود');
+    
+    const base = reset ? now() : (client.ai_expiry_date && new Date(client.ai_expiry_date) > new Date() ? client.ai_expiry_date : now());
+    const d = new Date(base);
+    d.setMonth(d.getMonth() + Number(months));
+    
+    const paidNow = Number(amountPaid || 0);
+    const remaining = Math.max(0, Number(totalCost) - paidNow);
+
+    return updateClient(num, {
+      ai_expiry_date: d.toISOString(),
+      ai_subscription_months: (reset ? 0 : (client.ai_subscription_months || 0)) + Number(months),
+      current_ai_sub_total: Number(totalCost),
+      current_ai_sub_paid: paidNow,
+      current_ai_sub_remaining: remaining,
+      ai_money: (client.ai_money || 0) + paidNow
+    });
+  }
+  
+  function resetAiSubscription(num) {
+    return updateClient(num, { ai_expiry_date: null, ai_subscription_months: 0 });
+  }
+
+  function massResetFree(type, excludeNums = []) {
+    let clients = getAllClients();
+    let changed = false; // ✅ إصلاح: تعريف المتغير
+    clients.forEach(c => {
+      if (excludeNums.includes(Number(c.num))) return;
+      
+      if (type === 'main') {
+        if (c.subscription_months === 1 && (c.money === 0 || !c.money)) {
+          c.expiry_date = new Date(Date.now() - 86400000).toISOString();
+          c.subscription_months = 0;
+          changed = true;
+          cloudSync('clients', c.num, c);
+        }
+      } else if (type === 'ai') {
+        if (c.ai_trial_used && c.ai_subscription_months <= 1) {
+          c.ai_expiry_date = null;
+          c.ai_subscription_months = 0;
+          changed = true;
+          cloudSync('clients', c.num, c);
+        }
+      }
+    });
+    if (changed) set(KEYS.clients, clients);
+    return true;
+  }
+
   function currentSession() { return get(KEYS.currentSession, null); }
   function setSession(num) { set(KEYS.currentSession, { clientNum: Number(num), at: now() }); }
   function clearSession() { set(KEYS.currentSession, null); }
@@ -672,50 +655,44 @@ function resetAiSubscription(num) {
   function pendingSubRequests() { return getSubRequests().filter(r => r.status === 'PENDING'); }
 
   function approveSubRequest(reqId, byUser, totalCost, amountPaid) {
-  const reqs = get(KEYS.subRequests, []);
-  const idx = reqs.findIndex(r => r.req_id === Number(reqId));
-  if (idx < 0) throw new Error('الطلب غير موجود');
-  if (reqs[idx].status !== 'PENDING') throw new Error('الطلب معالج مسبقاً');
-  const client = findClient(reqs[idx].client_num);
-  if (!client) throw new Error('العميل غير موجود');
-  const r = reqs[idx];
-  const nowDate = now();
-  const isExpired = daysBetween(nowDate, client.expiry_date) < 0;
-  let newStart = client.start_date, newMonths = r.months;
-  if (isExpired) newStart = nowDate;
-  else newMonths = (client.subscription_months || 0) + r.months;
-
-  // ✅ استخدام المبالغ الممررة أو القيمة الافتراضية
-  const finalTotal = totalCost !== undefined ? totalCost : r.amount;
-  const finalPaid = amountPaid !== undefined ? amountPaid : r.amount;
-  const finalRemaining = Math.max(0, finalTotal - finalPaid);
-
-  updateClient(r.client_num, {
-    subscription_months: newMonths, subscription_duration: durationLabel(newMonths),
-    start_date: newStart, expiry_date: addMonths(newStart, newMonths),
+    const reqs = get(KEYS.subRequests, []);
+    const idx = reqs.findIndex(r => r.req_id === Number(reqId));
+    if (idx < 0) throw new Error('الطلب غير موجود');
+    if (reqs[idx].status !== 'PENDING') throw new Error('الطلب معالج مسبقاً');
+    const client = findClient(reqs[idx].client_num);
+    if (!client) throw new Error('العميل غير موجود');
+    const r = reqs[idx];
+    const nowDate = now();
+    const isExpired = daysBetween(nowDate, client.expiry_date) < 0;
+    let newStart = client.start_date, newMonths = r.months;
+    if (isExpired) newStart = nowDate;
+    else newMonths = (client.subscription_months || 0) + r.months;
     
-    // ✅ الحقول المالية الجديدة
-    current_sub_total: finalTotal,
-    current_sub_paid: finalPaid,
-    current_sub_remaining: finalRemaining,
-    
-    money: (client.money || 0) + finalPaid, is_active: 1,
-    last_reminder_kind: null, last_reminder_at: null,
-  });
+    const finalTotal = totalCost !== undefined ? totalCost : r.amount;
+    const finalPaid = amountPaid !== undefined ? amountPaid : r.amount;
+    const finalRemaining = Math.max(0, finalTotal - finalPaid);
 
-  reqs[idx].status = 'APPROVED';
-  reqs[idx].decided_at = nowDate;
-  reqs[idx].decided_by = byUser || null;
-  set(KEYS.subRequests, reqs);
-  cloudSync('sub_requests', reqId, reqs[idx]);
-  addNotification(r.client_num, '✅ تم تفعيل اشتراكك',
-    `تم تفعيل اشتراكك لمدة ${durationLabel(r.months)}. ينتهي في ${new Date(addMonths(newStart, newMonths)).toLocaleDateString('ar-EG')}.`, 'green');
-  logAudit('SUB_APPROVED', r.client_num, `req=${reqId}`);
-  return r;
+    updateClient(r.client_num, {
+      subscription_months: newMonths, subscription_duration: durationLabel(newMonths),
+      start_date: newStart, expiry_date: addMonths(newStart, newMonths),
+      current_sub_total: finalTotal,
+      current_sub_paid: finalPaid,
+      current_sub_remaining: finalRemaining,
+      money: (client.money || 0) + finalPaid, is_active: 1,
+      last_reminder_kind: null, last_reminder_at: null,
+    });
+
+    reqs[idx].status = 'APPROVED';
+    reqs[idx].decided_at = nowDate;
+    reqs[idx].decided_by = byUser || null;
+    set(KEYS.subRequests, reqs);
+    cloudSync('sub_requests', reqId, reqs[idx]);
+    addNotification(r.client_num, '✅ تم تفعيل اشتراكك',
+      `تم تفعيل اشتراكك لمدة ${durationLabel(r.months)}. ينتهي في ${new Date(addMonths(newStart, newMonths)).toLocaleDateString('ar-EG')}.`, 'green');
+    logAudit('SUB_APPROVED', r.client_num, `req=${reqId}`);
+    return r;
   }
 
-
-   
   function rejectSubRequest(reqId, byUser) {
     const reqs = getSubRequests();
     const idx = reqs.findIndex(r => r.req_id === Number(reqId));
@@ -729,6 +706,7 @@ function resetAiSubscription(num) {
       `طلب التجديد #${reqId} لم يُقبل. للاستفسار تواصل مع الإدارة.`, 'red');
     return reqs[idx];
   }
+
   function cancelSubRequest(reqId, clientNum) {
     const reqs = getSubRequests();
     const idx = reqs.findIndex(r => r.req_id === Number(reqId) && Number(r.client_num) === Number(clientNum) && r.status === 'PENDING');
@@ -741,38 +719,34 @@ function resetAiSubscription(num) {
   }
 
   function grantSubscription(num, { minutes=0, hours=0, days=0, months=0, amount=0, resetMonthsIfExpired=true, totalCost=0 }) {
-  const client = findClient(num);
-  if (!client) throw new Error('العميل غير موجود');
-  const isExpired = daysBetween(now(), client.expiry_date) < 0;
-  const base = isExpired ? now() : client.expiry_date;
-  const newExpiry = addPrecise(base, { minutes, hours, days, months });
-  
-  let newMonths = client.subscription_months || 0;
-  let newStart = client.start_date;
-  if (months > 0) {
-    if (isExpired && resetMonthsIfExpired) { newStart = now(); newMonths = months; }
-    else newMonths += months;
-  }
-
-  // ✅ حساب المتبقي للاشتراك الجديد
-  const paidNow = Number(amount || 0);
-  const remaining = Math.max(0, Number(totalCost) - paidNow);
-
-  return updateClient(num, {
-    expiry_date: newExpiry, 
-    subscription_months: newMonths,
-    subscription_duration: durationLabel(newMonths), 
-    start_date: newStart,
-    money: (client.money || 0) + paidNow, // إجمالي كل ما دفعه في حياته
+    const client = findClient(num);
+    if (!client) throw new Error('العميل غير موجود');
+    const isExpired = daysBetween(now(), client.expiry_date) < 0;
+    const base = isExpired ? now() : client.expiry_date;
+    const newExpiry = addPrecise(base, { minutes, hours, days, months });
     
-    // ✅ الحقول الجديدة الخاصة بالاشتراك الحالي فقط
-    current_sub_total: Number(totalCost),
-    current_sub_paid: paidNow,
-    current_sub_remaining: remaining,
-    
-    is_active: 1,
-    last_reminder_kind: null, last_reminder_at: null,
-  });
+    let newMonths = client.subscription_months || 0;
+    let newStart = client.start_date;
+    if (months > 0) {
+      if (isExpired && resetMonthsIfExpired) { newStart = now(); newMonths = months; }
+      else newMonths += months;
+    }
+
+    const paidNow = Number(amount || 0);
+    const remaining = Math.max(0, Number(totalCost) - paidNow);
+
+    return updateClient(num, {
+      expiry_date: newExpiry, 
+      subscription_months: newMonths,
+      subscription_duration: durationLabel(newMonths), 
+      start_date: newStart,
+      money: (client.money || 0) + paidNow, 
+      current_sub_total: Number(totalCost),
+      current_sub_paid: paidNow,
+      current_sub_remaining: remaining,
+      is_active: 1,
+      last_reminder_kind: null, last_reminder_at: null,
+    });
   }
 
   function addInquiry(data) {
@@ -1109,58 +1083,44 @@ function resetAiSubscription(num) {
     if (changed) set(KEYS.notifications, arr);
   }
 
+  function deleteNotification(id) {
+    const arr = get(KEYS.notifications, []);
+    set(KEYS.notifications, arr.filter(n => Number(n.id) !== Number(id)));
+    cloudSync('notifications', id, null);
+  }
 
-   // دالة حذف إشعار واحد
-function deleteNotification(id) {
-  const arr = get(KEYS.notifications, []);
-  set(KEYS.notifications, arr.filter(n => Number(n.id) !== Number(id)));
-  cloudSync('notifications', id, null);
-}
+  function clearNotifications(clientNum) {
+    const arr = get(KEYS.notifications, []);
+    const toDelete = arr.filter(n => Number(n.client_num) === Number(clientNum));
+    toDelete.forEach(n => cloudSync('notifications', n.id, null));
+    set(KEYS.notifications, arr.filter(n => Number(n.client_num) !== Number(clientNum)));
+  }
 
-// دالة مسح جميع إشعارات عميل معين
-function clearNotifications(clientNum) {
-  const arr = get(KEYS.notifications, []);
-  const toDelete = arr.filter(n => Number(n.client_num) === Number(clientNum));
-  toDelete.forEach(n => cloudSync('notifications', n.id, null));
-  set(KEYS.notifications, arr.filter(n => Number(n.client_num) !== Number(clientNum)));
-}
+  function deleteOldInvoices(timeframe, isAdmin, clientNum) {
+    const now = new Date();
+    let cutoff = new Date();
+    if (timeframe === '24h') cutoff.setHours(now.getHours() - 24);
+    else if (timeframe === '7d') cutoff.setDate(now.getDate() - 7);
+    else if (timeframe === '30d') cutoff.setMonth(now.getMonth() - 1);
 
-
-   function deleteOldInvoices(timeframe, isAdmin, clientNum) {
-  const now = new Date();
-  let cutoff = new Date();
-  
-  // تحديد التاريخ المطلوب الحذف قبله
-  if (timeframe === '24h') cutoff.setHours(now.getHours() - 24);
-  else if (timeframe === '7d') cutoff.setDate(now.getDate() - 7);
-  else if (timeframe === '30d') cutoff.setMonth(now.getMonth() - 1);
-
-  let deletedCount = 0;
-  const tables = ['cash_sales', 'network_sales', 'shop_debts'];
-
-  tables.forEach(table => {
-    const all = get(table, []);
-    const toKeep = [];
-    
-    all.forEach(s => {
-      const saleDate = new Date(s.sale_date || s.debt_date);
-      // هل الفاتورة تابعة لهذا العميل؟ (أو هل أنا المدير؟)
-      const isTarget = isAdmin || Number(s.client_num) === Number(clientNum);
-      
-      if (isTarget && saleDate < cutoff) {
-        const id = s.sale_id || s.debt_id;
-        if (id) cloudSync(table, id, null); // حذف من السحابة
-        deletedCount++;
-      } else {
-        toKeep.push(s);
-      }
+    let deletedCount = 0;
+    const tables = ['cash_sales', 'network_sales', 'shop_debts'];
+    tables.forEach(table => {
+      const all = get(table, []);
+      const toKeep = [];
+      all.forEach(s => {
+        const saleDate = new Date(s.sale_date || s.debt_date);
+        const isTarget = isAdmin || Number(s.client_num) === Number(clientNum);
+        if (isTarget && saleDate < cutoff) {
+          const id = s.sale_id || s.debt_id;
+          if (id) cloudSync(table, id, null);
+          deletedCount++;
+        } else { toKeep.push(s); }
+      });
+      set(table, toKeep);
     });
-    set(table, toKeep); // تحديث الذاكرة المحلية
-  });
-  return deletedCount;
-   }
-   
-   
+    return deletedCount;
+  }
 
   function addPaymentProof(reqId, clientNum, content) {
     const arr = get(KEYS.paymentProofs, []);
@@ -1179,8 +1139,7 @@ function clearNotifications(clientNum) {
     if (!c) return null;
     const st = subscriptionStatus(c);
     const dl = st.days;
-    if (dl === null || dl < 0) return null;
-    if (dl > 7) return null;
+    if (dl === null || dl < 0 || dl > 7) return null;
     const lastReminder = c.last_reminder_kind;
     let kind = null;
     if (dl <= 1) kind = 'D1';
@@ -1374,12 +1333,8 @@ function clearNotifications(clientNum) {
     getTotalCartonsImported, searchProductsByName, getAllCustomersWithBalances,
     getSalesByPeriod, getDebtPaidTotal, getImportsByPeriod, getProfitsByPeriod,
     getBestSellingProduct, getProductMovement, getAdvancedAnalytics,
-    getAiSubscriptionStatus, requestAiTrial, createAiSubRequest, grantAiSubscription, resetAiSubscription,massResetFree,
-     addNotification, getNotifications, markAllNotificationsRead,
-deleteNotification, clearNotifications, // ✅ تمت الإضافة هنا
-addPaymentProof, getPaymentProofs,deleteOldInvoices,
-     createSubRequest, getSubRequests, pendingSubRequests, approveSubRequest,
-rejectSubRequest, cancelSubRequest, grantSubscription,
+    getAiSubscriptionStatus, requestAiTrial, createAiSubRequest, grantAiSubscription, resetAiSubscription, massResetFree,
+    deleteNotification, clearNotifications, deleteOldInvoices,
   };
 })();
 
