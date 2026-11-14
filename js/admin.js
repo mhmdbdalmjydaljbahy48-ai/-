@@ -599,10 +599,15 @@ let sysPaidAmount = c.current_sub_paid || 0;
           </div>
           
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
-            <div><b>إجمالي المدفوع:</b> <span style="color:var(--success)">${UI.fmtNum(c.money || 0)}</span></div>
-            <div><b>المتبقي المالي:</b> <span style="color:var(--amber)">${UI.fmtNum(sysRemainingMoney)}</span></div>
+            <<div><b>إجمالي كل المدفوعات:</b> <span style="color:var(--success)">${UI.fmtNum(c.money || 0)}</span></div>
+<div><b>المتبقي الحالي:</b> <span style="color:var(--danger); font-weight:bold">${UI.fmtNum(sysRemainingMoney)}</span></div>
+
+<div style="grid-column: span 2; background: rgba(245,158,11,0.1); padding: 8px; border-radius: 8px; margin-top:5px;">
+  <div class="flex-between"><span>إجمالي الاشتراك الحالي:</span><b>${UI.fmtNum(sysTotalCost)}</b></div>
+  <div class="flex-between"><span>ما دفعه في هذا الاشتراك:</span><b style="color:var(--success)">${UI.fmtNum(sysPaidAmount)}</b></div>
+</div>
             <div><b>أنشأ الحساب:</b> ${UI.fmtDate(c.created_at)}</div>
-            <div><b>أول اشتراك:</b> ${UI.fmtDate(firstSysSub)}</div>
+           <div><b>أول اشتراك:</b> ${UI.fmtDate(firstSysSub)}</div>
             <div><b>آخر اشتراك:</b> ${UI.fmtDate(lastSysSub)}</div>
             
             <!-- ✅ السطر الذي طلبته: إجمالي الأشهر الشامل -->
