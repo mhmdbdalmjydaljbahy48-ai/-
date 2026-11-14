@@ -494,7 +494,10 @@ const Admin = {
   },
 
 
-checkClientDetails(num) {
+
+
+
+  checkClientDetails(num) {
   try {
     const c = DB.findClient(num);
     if (!c) return alert('العميل غير موجود في الذاكرة المحلية. جرب تحديث الصفحة.');
@@ -505,7 +508,7 @@ checkClientDetails(num) {
     const aiSub = DB.getAiSubscriptionStatus(c);
     const isAiFree = c.ai_trial_used && c.ai_subscription_months <= 1;
 
-    // حساب المساحة المستهلكة
+    // حساب المساحة
     let totalBytes = 0;
     const keysToCheck = ['products', 'shop_customers', 'shop_debts', 'cash_sales', 'network_sales', 'personal_expenses', 'personal_income', 'personal_debts'];
     keysToCheck.forEach(k => {
@@ -516,24 +519,33 @@ checkClientDetails(num) {
 
     const monthsSinceCreation = Math.floor(DB.daysBetween(c.created_at || DB.now(), DB.now()) / 30) || 1;
 
-    // سجل الزيارات والاشتراكات
     const allLogs = DB.get('audit_log', []);
     const userLogins = allLogs.filter(l => Number(l.client_num) === Number(num) && l.action === 'LOGIN');
     userLogins.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
     const lastVisit = userLogins.length ? userLogins[0].created_at : (c.created_at || DB.now());
 
     const subs = DB.getSubRequests().filter(r => Number(r.client_num) === Number(num) && r.status === 'APPROVED');
-    const sysSubs = subs.filter(s => s.type !== 'ai').sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-    const aiSubs = subs.filter(s => s.type === 'ai').sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    const sysSubs = subs.filter(s => s.type !== 'ai');
+    const aiSubs = subs.filter(s => s.type === 'ai');
 
-    // ✅ حساب إجمالي الأشهر التاريخية (الاشتراك الأول + كل التجديدات)
-    let totalSysMonthsHistory = sysSubs.reduce((sum, req) => sum + Number(req.months), 0);
-    // إذا كان الحساب جديداً ولم يجدد، نضيف أشهر التجربة الأولى
-    if (sysSubs.length === 0 && c.subscription_months) totalSysMonthsHistory = c.subscription_months;
+    // ✅ الحساب التاريخي الشامل (تجربة + مدفوع + تمديدات)
+    let totalSysMonths = 0;
+    sysSubs.forEach(r => totalSysMonths += Number(r.months));
+    const sysExts = allLogs.filter(l => Number(l.client_num) === Number(num) && l.action === 'ADMIN_EXTEND' && l.details.includes('months'));
+    sysExts.forEach(l => {
+        const m = l.details.match(/\+(\d+)\s+months/);
+        if (m) totalSysMonths += Number(m[1]);
+    });
+    if (totalSysMonths === 0) totalSysMonths = Number(c.subscription_months) || 1;
 
-    let totalAiMonthsHistory = aiSubs.reduce((sum, req) => sum + Number(req.months), 0);
-    if (aiSubs.length === 0 && c.ai_subscription_months) totalAiMonthsHistory = c.ai_subscription_months;
-    if (c.ai_trial_used && totalAiMonthsHistory === 0) totalAiMonthsHistory = 1; // إذا استخدم التجربة فقط
+    let totalAiMonths = c.ai_trial_used ? 1 : 0;
+    aiSubs.forEach(r => totalAiMonths += Number(r.months));
+    const aiExts = allLogs.filter(l => Number(l.client_num) === Number(num) && l.action === 'ADMIN_EXTEND_AI');
+    aiExts.forEach(l => {
+        const m = l.details.match(/\+(\d+)\s+months/);
+        if (m) totalAiMonths += Number(m[1]);
+    });
+    if (totalAiMonths === 0) totalAiMonths = Number(c.ai_subscription_months) || (c.ai_trial_used ? 1 : 0);
 
     const firstSysSub = sysSubs.length ? sysSubs[0].created_at : (c.start_date || c.created_at);
     const lastSysSub = sysSubs.length ? sysSubs[sysSubs.length - 1].created_at : (c.created_at || DB.now());
@@ -541,7 +553,6 @@ checkClientDetails(num) {
     const firstAiSub = aiSubs.length ? aiSubs[0].created_at : (c.ai_expiry_date ? c.created_at : null);
     const lastAiSub = aiSubs.length ? aiSubs[aiSubs.length - 1].created_at : (c.ai_expiry_date ? c.created_at : null);
 
-    // حساب إجمالي مدفوعات البوت
     let totalAiPaid = 0;
     aiSubs.forEach(s => totalAiPaid += Number(s.amount));
     if (!totalAiPaid && c.ai_subscription_months > 0 && !isAiFree) totalAiPaid = c.ai_subscription_months * (DB.getSettings().ai_month_price || 0);
@@ -555,21 +566,13 @@ checkClientDetails(num) {
     let aiRemainingMoney = 0;
     if (aiSub.ok && aiSub.days !== null) aiRemainingMoney = (aiSub.days / 30) * aiMonthPrice;
 
-    // حساب النشاط
     const daysSinceVisit = DB.daysBetween(lastVisit, DB.now());
     let activityColor = 'var(--success)'; 
     let activityText = 'نشط (خلال 24 ساعة)';
     
-    if (daysSinceVisit > 30) {
-      activityColor = 'var(--danger)'; 
-      activityText = 'خامل (أكثر من شهر)';
-    } else if (daysSinceVisit > 14) {
-      activityColor = '#F97316'; 
-      activityText = 'شبه خامل (أسبوعين)';
-    } else if (daysSinceVisit > 7) {
-      activityColor = 'var(--amber)'; 
-      activityText = 'متوسط (أسبوع)';
-    }
+    if (daysSinceVisit > 30) { activityColor = 'var(--danger)'; activityText = 'خامل (أكثر من شهر)'; }
+    else if (daysSinceVisit > 14) { activityColor = '#F97316'; activityText = 'شبه خامل (أسبوعين)'; }
+    else if (daysSinceVisit > 7) { activityColor = 'var(--amber)'; activityText = 'متوسط (أسبوع)'; }
 
     UI.modal({
       title: `🔍 تقرير شامل: ${UI.esc(c.name)}`,
@@ -587,11 +590,15 @@ checkClientDetails(num) {
             <div><b>أول اشتراك:</b> ${UI.fmtDate(firstSysSub)}</div>
             <div><b>آخر اشتراك:</b> ${UI.fmtDate(lastSysSub)}</div>
             
-            <!-- ✅ التعديل هنا: إظهار إجمالي الأشهر التاريخية -->
-            <div><b>إجمالي أشهر الاشتراك:</b> <span style="color:var(--info)">${totalSysMonthsHistory} شهر</span></div>
-            
-            <div style="grid-column: span 2;"><b>الوقت المتبقي:</b> <span style="color:${sysSub.ok ? 'var(--success)' : 'var(--danger)'}">${UI.fmtRemaining(c.expiry_date)}</span></div>
-            <div style="grid-column: span 2;"><b>مدة عضويته:</b> ${monthsSinceCreation} شهر</div>
+            <!-- ✅ السطر الذي طلبته: إجمالي الأشهر الشامل -->
+            <div style="grid-column: span 2; padding: 10px; background: rgba(59,130,246,0.1); border-radius: 8px; text-align:center; margin-top:5px;">
+              <span style="font-size:1rem; font-weight:bold;">إجمالي أشهر الاشتراك منذ الإنشاء: </span>
+              <span style="color:var(--info); font-weight:900; font-size:1.3rem;">${totalSysMonths} شهر</span>
+              <div style="font-size:0.8rem; color:var(--text-2);">(شامل التجربة والتمديدات)</div>
+            </div>
+
+            <div style="grid-column: span 2;"><b>الوقت المتبقي الحالي:</b> <span style="color:${sysSub.ok ? 'var(--success)' : 'var(--danger)'}">${UI.fmtRemaining(c.expiry_date)}</span></div>
+            <div style="grid-column: span 2;"><b>مدة عضويته كعميل:</b> ${monthsSinceCreation} شهر</div>
           </div>
         </div>
 
@@ -607,11 +614,14 @@ checkClientDetails(num) {
             <div><b>أول اشتراك:</b> ${firstAiSub ? UI.fmtDate(firstAiSub) : 'لا يوجد'}</div>
             <div><b>آخر اشتراك:</b> ${lastAiSub ? UI.fmtDate(lastAiSub) : 'لا يوجد'}</div>
             
-            <!-- ✅ التعديل هنا: إظهار إجمالي أشهر البوت التاريخية -->
-            <div><b>إجمالي أشهر البوت:</b> <span style="color:#60A5FA">${totalAiMonthsHistory} شهر</span></div>
-            
-            <div><b>التجربة المجانية:</b> ${c.ai_trial_used ? 'استخدمها' : 'لم يستخدمها'}</div>
-            <div style="grid-column: span 2;"><b>الوقت المتبقي:</b> <span style="color:${aiSub.ok ? '#60A5FA' : 'var(--danger)'}">${c.ai_expiry_date ? UI.fmtRemaining(c.ai_expiry_date) : 'غير مشترك'}</span></div>
+            <!-- ✅ السطر الذي طلبته للبوت -->
+            <div style="grid-column: span 2; padding: 10px; background: rgba(59,130,246,0.1); border-radius: 8px; text-align:center; margin-top:5px;">
+              <span style="font-size:1rem; font-weight:bold;">إجمالي أشهر البوت منذ الإنشاء: </span>
+              <span style="color:#60A5FA; font-weight:900; font-size:1.3rem;">${totalAiMonths} شهر</span>
+              <div style="font-size:0.8rem; color:var(--text-2);">(شامل التجربة والتمديدات)</div>
+            </div>
+
+            <div style="grid-column: span 2;"><b>الوقت المتبقي الحالي:</b> <span style="color:${aiSub.ok ? '#60A5FA' : 'var(--danger)'}">${c.ai_expiry_date ? UI.fmtRemaining(c.ai_expiry_date) : 'غير مشترك'}</span></div>
           </div>
         </div>
 
