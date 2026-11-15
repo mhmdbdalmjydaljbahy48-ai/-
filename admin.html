@@ -100,11 +100,14 @@
     </button>
   </div>
 
-        <!-- ✅ زر حذف الفواتير القديمة (نُقل إلى هنا) -->
-<div style="margin-top: 1px;">
-  <button class="btn btn-block" onclick="Admin.showDeleteOldInvoicesMenu()" style="background: #dc3545; color: white; border: none; padding: 15px; font-size: 1.1rem; font-weight: bold; border-radius: 12px; box-shadow: 0 4px 15px rgba(220,53,69,0.4);">
-    🗑️ حذف الفواتير القديمة (لجميع العملاء)
-  </button>
+        <!-- ✅ أزرار التصفير أسفل جدول المشتركين -->
+<div class="grid-2 mt-3" style="gap: 10px;">
+    <button class="btn btn-block" onclick="Admin.showDeleteOldInvoicesMenu()" style="background: #dc3545; color: white; border: none; padding: 15px; font-size: 1rem; font-weight: bold; border-radius: 12px; box-shadow: 0 4px 15px rgba(220,53,69,0.4);">
+        🗑️ تصفير فواتير المبيعات
+    </button>
+    <button class="btn btn-block" onclick="Admin.showDeleteOldImportsMenu()" style="background: #F59E0B; color: #000; border: none; padding: 15px; font-size: 1rem; font-weight: bold; border-radius: 12px; box-shadow: 0 4px 15px rgba(245,158,11,0.4);">
+        📥 تصفير فواتير الوارد
+    </button>
 </div>
         
       </div>
