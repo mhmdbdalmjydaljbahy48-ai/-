@@ -818,6 +818,61 @@ const Admin = {
     });
   },
 
+
+  showClearClientInvoicesMenu(num) {
+  const c = DB.findClient(num);
+  if (!c) return;
+
+  // 1. حساب المساحة المستهلكة لهذا العميل
+  let totalBytes = 0;
+  const keysToCheck = ['products', 'shop_customers', 'shop_debts', 'cash_sales', 'network_sales', 'imports', 'personal_expenses', 'personal_income', 'personal_debts', 'personal_debt_payments', 'personal_notes', 'personal_goals', 'personal_obligations'];
+  keysToCheck.forEach(k => {
+     const data = DB.get(k, []).filter(x => Number(x.client_num) === Number(num));
+     try { totalBytes += new Blob([JSON.stringify(data)]).size; } catch(e) {}
+  });
+  
+  const sizeStr = totalBytes < 1024 ? totalBytes + ' بايت' : (totalBytes / 1024).toFixed(1) + ' كيلوبايت';
+
+  UI.modal({
+    title: `🗑️ تصفير فواتير: ${UI.esc(c.name)}`,
+    content: `
+      <div class="card mb-4" style="background:rgba(59,130,246,0.1); border:1px solid #3B82F6; padding:15px; text-align:center;">
+        <h4 style="color:#60A5FA; margin-bottom:10px;">☁️ إجمالي استخدام السحابة</h4>
+        <div style="font-size:2rem; font-weight:900; color:#fff;">${sizeStr}</div>
+        <small class="text-muted">هذه المساحة تشمل الفواتير والمنتجات والديون المسجلة.</small>
+      </div>
+
+      <p class="mb-3 text-muted">اختر الفترة الزمنية لحذف فواتير هذا العميل الأقدم منها (لتوفير المساحة):</p>
+      
+      <div class="flex gap-2" style="flex-direction: column;">
+        <button class="btn btn-block" onclick="Admin.confirmClearClientInvoices(${num}, '30d')" style="background:#10B981; color:white; font-weight:bold; padding:12px;">🟢 حذف فواتير الأقدم من شهر</button>
+        <button class="btn btn-block" onclick="Admin.confirmClearClientInvoices(${num}, '7d')" style="background:#F59E0B; color:white; font-weight:bold; padding:12px;">🟡 حذف فواتير الأقدم من أسبوع</button>
+        <button class="btn btn-block" onclick="Admin.confirmClearClientInvoices(${num}, '24h')" style="background:#EF4444; color:white; font-weight:bold; padding:12px;">🔴 حذف فواتير الأقدم من 24 ساعة</button>
+      </div>
+    `,
+    onOpen: (el) => el.style.maxWidth = '450px'
+  });
+},
+
+confirmClearClientInvoices(num, timeframe) {
+  const label = timeframe === '30d' ? 'شهر' : timeframe === '7d' ? 'أسبوع' : '24 ساعة';
+  UI.confirm({
+    title: '⚠️ تأكيد الحذف',
+    message: `هل أنت متأكد من حذف جميع فواتير هذا العميل الأقدم من ${label}؟ لا يمكن التراجع!`,
+    danger: true,
+    onConfirm: () => {
+      // نمرر false لأننا لسنا في الحذف الشامل، ونمرر رقم العميل
+      const count = DB.deleteOldInvoices(timeframe, false, num);
+      UI.toast(`🗑️ تم حذف ${count} فاتورة للعميل بنجاح`, 'success');
+      document.getElementById('ft-modal').remove();
+      this.render();
+    }
+  });
+},
+
+
+
+  
   showMassResetMenu() {
     UI.modal({
       title: '⚠️ تصفير الاشتراكات المجانية',
