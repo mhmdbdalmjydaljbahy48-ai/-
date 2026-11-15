@@ -958,6 +958,37 @@ confirmClearClientInvoices(num, timeframe) {
     });
   },
 
+  showDeleteOldImportsMenu() {
+  UI.modal({
+    title: '🗑️ حذف فواتير الوارد القديمة (جميع العملاء)',
+    content: `
+      <p class="mb-4 text-muted">اختر الفترة الزمنية لحذف فواتير الوارد الأقدم منها لجميع العملاء:</p>
+      <div class="flex gap-2" style="flex-direction: column;">
+        <button class="btn btn-block" onclick="Admin.confirmDeleteOldImports('7d')" style="background:#10B981; color:white; font-weight:bold;">🟢 الأقدم من أسبوع</button>
+        <button class="btn btn-block" onclick="Admin.confirmDeleteOldImports('30d')" style="background:#F97316; color:white; font-weight:bold;">🟠 الأقدم من شهر</button>
+        <button class="btn btn-block" onclick="Admin.confirmDeleteOldImports('60d')" style="background:#F59E0B; color:white; font-weight:bold;">🟡 الأقدم من شهرين</button>
+        <button class="btn btn-block" onclick="Admin.confirmDeleteOldImports('365d')" style="background:#EF4444; color:white; font-weight:bold;">🔴 الأقدم من سنة</button>
+      </div>
+    `
+  });
+},
+
+confirmDeleteOldImports(timeframe) {
+  const label = timeframe === '7d' ? 'أسبوع' : timeframe === '30d' ? 'شهر' : timeframe === '60d' ? 'شهرين' : 'سنة';
+  UI.confirm({
+    title: 'تأكيد الحذف',
+    message: `هل أنت متأكد من حذف جميع فواتير الوارد الأقدم من ${label} لجميع العملاء؟ لا يمكن التراجع!`,
+    danger: true,
+    onConfirm: () => {
+      const count = DB.massDeleteOldImports(timeframe);
+      UI.toast(`🗑️ تم حذف ${count} فاتورة وارد بنجاح`, 'success');
+      document.getElementById('ft-modal').remove();
+      this.render();
+    }
+  });
+},
+  
+
   filterMassReset(query) {
     const q = query.toLowerCase();
     document.querySelectorAll('.client-row').forEach(row => {
