@@ -1172,7 +1172,7 @@ paySupplier(merchantName) {
       };
     }
   });
-}
+},
 
 showDeleteSupplierInvoicesMenu(merchantName) {
   UI.modal({
