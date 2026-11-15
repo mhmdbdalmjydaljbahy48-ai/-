@@ -562,6 +562,35 @@ const DB = (() => {
     return true;
   }
 
+
+
+
+function massDeleteOldImports(timeframe) {
+  const now = new Date();
+  let cutoff = new Date();
+  if (timeframe === '7d') cutoff.setDate(now.getDate() - 7);
+  else if (timeframe === '30d') cutoff.setMonth(now.getMonth() - 1);
+  else if (timeframe === '60d') cutoff.setMonth(now.getMonth() - 2);
+  else if (timeframe === '365d') cutoff.setFullYear(now.getFullYear() - 1);
+
+  let deletedCount = 0;
+  const allImports = get(KEYS.imports, []);
+  const toKeep = [];
+
+  allImports.forEach(i => {
+    const importDate = new Date(i.import_date);
+    if (importDate < cutoff) {
+      if (i.import_id) cloudSync('imports', i.import_id, null);
+      deletedCount++;
+    } else {
+      toKeep.push(i);
+    }
+  });
+  set(KEYS.imports, toKeep);
+  return deletedCount;
+}
+   
+   
   function currentSession() { return get(KEYS.currentSession, null); }
   function setSession(num) { set(KEYS.currentSession, { clientNum: Number(num), at: now() }); }
   function clearSession() { set(KEYS.currentSession, null); }
