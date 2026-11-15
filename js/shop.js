@@ -1097,8 +1097,120 @@ downloadSupplierInvoices(merchantName) {
   UI.toast('✅ تم تحميل كشف الحساب', 'success');
 },
 
-// دالة التسديد الذكي (تخصم من الأقدم إلى الأحدث)
-  // دالة التسديد الذكي (تخصم من الأقدم إلى الأحدث)
+// ═══════════════════════════════════════════════════════════
+//                    إدارة الموردين (التجار) - نسخة آمنة
+// ═══════════════════════════════════════════════════════════
+
+openSuppliersMenu() {
+  const imports = DB.getImports(this.client.num);
+  const merchants = [...new Set(imports.map(i => i.merchant_name))].filter(Boolean);
+
+  if (merchants.length === 0) {
+    return UI.modal({ title: 'تنبيه', content: '<p class="text-center text-muted">لا يوجد موردون مسجلون حتى الآن. قم بإضافة توريد أولاً.</p>' });
+  }
+
+  let listHtml = merchants.map((m, index) => {
+    const mImports = imports.filter(i => i.merchant_name === m);
+    const totalRemaining = mImports.reduce((sum, i) => sum + Number(i.residual_amount || 0), 0);
+    const color = totalRemaining > 0 ? 'var(--danger)' : 'var(--success)';
+    return `
+      <div class="card mb-2 flex-between supplier-item" data-merchant="${UI.esc(m)}" style="background:var(--bg-3); cursor:pointer;">
+        <div>
+          <h4 style="margin:0; color:var(--amber);">${UI.esc(m)}</h4>
+          <small class="text-muted">${mImports.length} فاتورة توريد</small>
+        </div>
+        <div style="text-align:left;">
+          <small class="text-muted">المتبقي له:</small>
+          <div style="font-weight:bold; color:${color};">${UI.fmtNum(totalRemaining)} ${UI.unitOf(this.client)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  UI.modal({
+    title: '🏭 قائمة الموردين',
+    content: `<div style="max-height: 400px; overflow-y: auto;">${listHtml}</div>`,
+    onOpen: (el, close) => {
+      // ✅ ربط الأزرار برمجياً لتجنب أخطاء الأسماء
+      el.querySelectorAll('.supplier-item').forEach(item => {
+        item.onclick = () => {
+          const name = item.getAttribute('data-merchant');
+          close();
+          this.viewSupplierDetails(name);
+        };
+      });
+    }
+  });
+},
+
+viewSupplierDetails(merchantName) {
+  const imports = DB.getImports(this.client.num).filter(i => i.merchant_name === merchantName).sort((a,b) => new Date(b.import_date) - new Date(a.import_date));
+  const totalRemaining = imports.reduce((sum, i) => sum + Number(i.residual_amount || 0), 0);
+  const totalPaid = imports.reduce((sum, i) => sum + Number(i.paid_amount || 0), 0);
+  const totalInvoiced = imports.reduce((sum, i) => sum + Number(i.full_amount || 0), 0);
+
+  let invoicesHtml = imports.map(i => `
+    <div class="flex-between mb-2" style="padding:10px; border-bottom:1px solid var(--border-2); font-size:0.9rem;">
+      <div>
+        <b>فاتورة #${i.import_id}</b><br>
+        <small class="text-muted">${UI.fmtDate(i.import_date)} - ${i.product_name}</small>
+      </div>
+      <div style="text-align:left;">
+        <div style="font-size:0.8rem; color:var(--text-2)">الإجمالي: ${UI.fmtNum(i.full_amount)}</div>
+        <div style="font-size:0.8rem; color:var(--success)">المسدد: ${UI.fmtNum(i.paid_amount)}</div>
+        <div style="font-weight:bold; color:${i.residual_amount > 0 ? 'var(--danger)' : 'var(--success)'};">المتبقي: ${UI.fmtNum(i.residual_amount)}</div>
+      </div>
+    </div>
+  `).join('');
+
+  UI.modal({
+    title: `🏭 كشف حساب: ${UI.esc(merchantName)}`,
+    content: `
+      <div class="card mb-3" style="background:rgba(239,68,68,0.1); border:1px solid var(--danger); text-align:center; padding:15px;">
+        <h4 style="margin:0 0 10px; color:var(--danger);">إجمالي المتبقي لهذا التاجر</h4>
+        <div style="font-size:2rem; font-weight:900; color:var(--danger); margin-bottom:10px;">${UI.fmtNum(totalRemaining)} <small>${UI.unitOf(this.client)}</small></div>
+        
+        <div class="flex-between" style="border-top:1px dashed var(--border-2); padding-top:10px; font-size:0.9rem;">
+           <span>إجمالي الفواتير: <b>${UI.fmtNum(totalInvoiced)}</b></span>
+           <span style="color:var(--success)">إجمالي المسدد: <b>${UI.fmtNum(totalPaid)}</b></span>
+        </div>
+      </div>
+
+      <div class="grid-2 mb-3">
+        <button class="btn btn-outline" id="btnShowRemaining" style="border-color:var(--info); color:var(--info);">🔍 تفاصيل المتبقي (الفواتير)</button>
+        <button class="btn btn-primary" id="btnPaySupplier" style="background:#10B981; border-color:#10B981;">💵 تسديد دفعة</button>
+        <button class="btn btn-outline" id="btnDownloadStatement" style="grid-column:span 2; border-color:var(--amber); color:var(--amber);">📥 تحميل كشف الحساب (txt)</button>
+      </div>
+
+      <div class="flex-between mb-2 mt-4">
+        <h4 style="margin:0;">📄 سجل كافة الفواتير</h4>
+        <button class="icon-btn" id="btnDeleteOldInvoices" style="width:35px; height:35px; border-radius:50%; background:rgba(239,68,68,0.1); color:var(--danger);" title="حذف فواتير قديمة">
+          <i data-lucide="trash-2" style="width:18px; height:18px;"></i>
+        </button>
+      </div>
+      
+      <div style="max-height: 250px; overflow-y: auto;">
+        ${invoicesHtml}
+      </div>
+    `,
+    onOpen: (el, close) => {
+      el.querySelector('#btnShowRemaining').onclick = () => {
+        close();
+        this.showSupplierRemainingDetails(merchantName);
+      };
+      el.querySelector('#btnPaySupplier').onclick = () => {
+        close();
+        this.paySupplier(merchantName);
+      };
+      el.querySelector('#btnDownloadStatement').onclick = () => this.downloadSupplierInvoices(merchantName);
+      el.querySelector('#btnDeleteOldInvoices').onclick = () => {
+        close();
+        this.showDeleteSupplierInvoicesMenu(merchantName);
+      };
+    }
+  });
+},
+
 paySupplier(merchantName) {
   const imports = DB.getImports(this.client.num)
     .filter(i => i.merchant_name === merchantName && Number(i.residual_amount) > 0)
@@ -1119,68 +1231,57 @@ paySupplier(merchantName) {
         <label class="form-label">المبلغ الذي تريد سداده الآن</label>
         <input class="form-input" type="number" id="supplierPayAmount" max="${totalRemaining}" placeholder="أدخل المبلغ..." value="${totalRemaining}">
       </div>
-      <!-- تم تغيير الزر ليعمل مباشرة -->
-      <button class="btn btn-primary btn-block" onclick="Shop.executeSupplierPayment('${UI.esc(merchantName)}', ${totalRemaining})" style="background:#10B981;">تأكيد السداد</button>
-    `
+      <button class="btn btn-primary btn-block" id="btnSupplierPayConfirm" style="background:#10B981;">تأكيد السداد</button>
+    `,
+    onOpen: (el, close) => {
+      el.querySelector('#btnSupplierPayConfirm').onclick = () => {
+        const input = el.querySelector('#supplierPayAmount');
+        const payAmt = Number(input.value);
+        
+        if (!payAmt || payAmt <= 0) return UI.toast('أدخل مبلغاً صحيحاً', 'error');
+        if (payAmt > totalRemaining) return UI.toast('المبلغ المدخل أكبر من إجمالي المتبقي!', 'error');
+        
+        let remainingToPay = payAmt;
+        const allImports = DB.get(DB.KEYS.imports, []);
+        let modifiedCount = 0; 
+
+        try {
+          for (const inv of imports) {
+            if (remainingToPay <= 0) break;
+            
+            const idx = allImports.findIndex(i => String(i.import_id) === String(inv.import_id));
+            if (idx < 0) continue;
+
+            const invRemain = Number(allImports[idx].residual_amount);
+            const amountForThisInv = Math.min(remainingToPay, invRemain);
+
+            allImports[idx].paid_amount = Number(allImports[idx].paid_amount || 0) + amountForThisInv;
+            allImports[idx].residual_amount = invRemain - amountForThisInv;
+            
+            if (typeof DB.cloudSync === 'function') {
+              DB.cloudSync('imports', allImports[idx].import_id, allImports[idx]);
+            }
+            
+            remainingToPay -= amountForThisInv;
+            modifiedCount++;
+          }
+
+          if (modifiedCount === 0) {
+            return UI.toast('⚠️ خطأ: لم يتم العثور على الفواتير المطابقة للتسديد', 'error');
+          }
+
+          DB.set(DB.KEYS.imports, allImports); 
+          UI.toast('✅ تم تسديد المبلغ وتوزيعه على الفواتير', 'success');
+          
+          close();
+          setTimeout(() => this.viewSupplierDetails(merchantName), 500); 
+        } catch (error) {
+          console.error("خطأ أثناء التسديد:", error);
+          UI.toast('حدث خطأ غير متوقع أثناء التسديد', 'error');
+        }
+      };
+    }
   });
-},
-
-// الدالة الجديدة التي ستنفذ السداد عند الضغط على الزر
-executeSupplierPayment(merchantName, totalRemaining) {
-  const input = document.getElementById('supplierPayAmount');
-  if (!input) return UI.toast('حدث خطأ في قراءة المبلغ', 'error');
-  
-  let payAmt = Number(input.value);
-  if (!payAmt || payAmt <= 0) return UI.toast('أدخل مبلغاً صحيحاً', 'error');
-  if (payAmt > totalRemaining) return UI.toast('المبلغ المدخل أكبر من إجمالي المتبقي!', 'error');
-  
-  const imports = DB.getImports(this.client.num)
-    .filter(i => i.merchant_name === merchantName && Number(i.residual_amount) > 0)
-    .sort((a,b) => new Date(a.import_date) - new Date(b.import_date));
-
-  let remainingToPay = payAmt;
-  const allImports = DB.get(DB.KEYS.imports, []);
-  let modifiedCount = 0; 
-
-  try {
-    for (const inv of imports) {
-      if (remainingToPay <= 0) break;
-      
-      // مطابقة النص بالرقم لضمان عدم حدوث خطأ
-      const idx = allImports.findIndex(i => String(i.import_id) === String(inv.import_id));
-      if (idx < 0) continue;
-
-      const invRemain = Number(allImports[idx].residual_amount);
-      const amountForThisInv = Math.min(remainingToPay, invRemain);
-
-      allImports[idx].paid_amount = Number(allImports[idx].paid_amount || 0) + amountForThisInv;
-      allImports[idx].residual_amount = invRemain - amountForThisInv;
-      
-      if (typeof DB.cloudSync === 'function') {
-        DB.cloudSync('imports', allImports[idx].import_id, allImports[idx]);
-      }
-      
-      remainingToPay -= amountForThisInv;
-      modifiedCount++;
-    }
-
-    if (modifiedCount === 0) {
-      return UI.toast('⚠️ خطأ: لم يتم العثور على الفواتير المطابقة للتسديد', 'error');
-    }
-
-    DB.set(DB.KEYS.imports, allImports); 
-    UI.toast('✅ تم تسديد المبلغ وتوزيعه على الفواتير', 'success');
-    
-    // إغلاق النافذة المنبثقة
-    const modal = document.getElementById('ft-modal');
-    if (modal) modal.remove();
-
-    // تحديث كشف الحساب فوراً
-    setTimeout(() => this.viewSupplierDetails(merchantName), 500); 
-  } catch (error) {
-    console.error("خطأ أثناء التسديد:", error);
-    UI.toast('حدث خطأ غير متوقع أثناء التسديد', 'error');
-  }
 },
 
 showDeleteSupplierInvoicesMenu(merchantName) {
@@ -1189,14 +1290,26 @@ showDeleteSupplierInvoicesMenu(merchantName) {
     content: `
       <p class="text-muted mb-4">اختر الفترة الزمنية لحذف فواتير هذا المورد الأقدم منها (تنبيه: لا يمكن التراجع):</p>
       <div class="flex gap-2" style="flex-direction: column;">
-        <button class="btn btn-block" onclick="Shop.executeDeleteSupplierInvoices('${UI.esc(merchantName)}', '7d')" style="background:#10B981; color:white; font-weight:bold;">🟢 الأقدم من أسبوع</button>
-        <button class="btn btn-block" onclick="Shop.executeDeleteSupplierInvoices('${UI.esc(merchantName)}', '30d')" style="background:#F97316; color:white; font-weight:bold;">🟠 الأقدم من شهر</button>
-        <button class="btn btn-block" onclick="Shop.executeDeleteSupplierInvoices('${UI.esc(merchantName)}', '60d')" style="background:#F59E0B; color:white; font-weight:bold;">🟡 الأقدم من شهرين</button>
-        <button class="btn btn-block" onclick="Shop.executeDeleteSupplierInvoices('${UI.esc(merchantName)}', '365d')" style="background:#EF4444; color:white; font-weight:bold;">🔴 الأقدم من سنة</button>
+        <button class="btn btn-block btn-del-inv" data-time="7d" style="background:#10B981; color:white; font-weight:bold;">🟢 الأقدم من أسبوع</button>
+        <button class="btn btn-block btn-del-inv" data-time="30d" style="background:#F97316; color:white; font-weight:bold;">🟠 الأقدم من شهر</button>
+        <button class="btn btn-block btn-del-inv" data-time="60d" style="background:#F59E0B; color:white; font-weight:bold;">🟡 الأقدم من شهرين</button>
+        <button class="btn btn-block btn-del-inv" data-time="365d" style="background:#EF4444; color:white; font-weight:bold;">🔴 الأقدم من سنة</button>
       </div>
-    `
+    `,
+    onOpen: (el, close) => {
+      el.querySelectorAll('.btn-del-inv').forEach(btn => {
+        btn.onclick = () => {
+          const time = btn.getAttribute('data-time');
+          close();
+          this.executeDeleteSupplierInvoices(merchantName, time);
+        };
+      });
+    }
   });
 },
+
+  
+
 
 executeDeleteSupplierInvoices(merchantName, timeframe) {
   const label = timeframe === '7d' ? 'أسبوع' : timeframe === '30d' ? 'شهر' : timeframe === '60d' ? 'شهرين' : 'سنة';
