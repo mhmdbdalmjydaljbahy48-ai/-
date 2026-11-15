@@ -1242,7 +1242,8 @@ paySupplier(merchantName) {
         if (payAmt > totalRemaining) return UI.toast('المبلغ المدخل أكبر من إجمالي المتبقي!', 'error');
         
         let remainingToPay = payAmt;
-        const allImports = DB.get(DB.KEYS.imports, []);
+        // ✅ إصلاح 1: استخدام النص المباشر 'imports'
+        const allImports = DB.get('imports', []); 
         let modifiedCount = 0; 
 
         try {
@@ -1270,7 +1271,8 @@ paySupplier(merchantName) {
             return UI.toast('⚠️ خطأ: لم يتم العثور على الفواتير المطابقة للتسديد', 'error');
           }
 
-          DB.set(DB.KEYS.imports, allImports); 
+          // ✅ إصلاح 2: استخدام النص المباشر 'imports'
+          DB.set('imports', allImports); 
           UI.toast('✅ تم تسديد المبلغ وتوزيعه على الفواتير', 'success');
           
           close();
