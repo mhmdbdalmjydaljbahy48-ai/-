@@ -289,6 +289,8 @@ const Admin = {
           
           <button class="btn btn-outline" data-act="check" style="grid-column:span 2; border-color: var(--success); color: var(--success)">🔍 فحص اشتراك العميل</button>
           <button class="btn btn-outline" data-act="pay" style="grid-column:span 2; border-color: #10B981; color: #10B981;">💵 تسديد دفعة (النظام / البوت)</button>
+          <!-- ✅ الزر الجديد لتصفير فواتير العميل -->
+          <button class="btn btn-outline" data-act="clear_client_invoices" style="grid-column:span 2; border-color: #dc3545; color: #dc3545;">🗑️ تصفير فواتير هذا العميل</button>
           <button class="btn btn-outline" data-act="contact" style="grid-column:span 2; border-color: #3B82F6; color: #3B82F6;">📞 التواصل مع العميل</button>
 
           <button class="btn btn-danger" data-act="reset" style="grid-column:span 2">🔄 تصفير البيانات</button>
