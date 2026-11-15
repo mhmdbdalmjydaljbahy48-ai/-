@@ -1098,7 +1098,7 @@ downloadSupplierInvoices(merchantName) {
 },
 
 // دالة التسديد الذكي (تخصم من الأقدم إلى الأحدث)
-// دالة التسديد الذكي (تخصم من الأقدم إلى الأحدث)
+  // دالة التسديد الذكي (تخصم من الأقدم إلى الأحدث)
 paySupplier(merchantName) {
   const imports = DB.getImports(this.client.num)
     .filter(i => i.merchant_name === merchantName && Number(i.residual_amount) > 0)
@@ -1119,59 +1119,68 @@ paySupplier(merchantName) {
         <label class="form-label">المبلغ الذي تريد سداده الآن</label>
         <input class="form-input" type="number" id="supplierPayAmount" max="${totalRemaining}" placeholder="أدخل المبلغ..." value="${totalRemaining}">
       </div>
-      <button class="btn btn-primary btn-block" id="btnSupplierPay" style="background:#10B981;">تأكيد السداد</button>
-    `,
-    onOpen: (el, close) => {
-      el.querySelector('#btnSupplierPay').onclick = () => {
-        let payAmt = Number(el.querySelector('#supplierPayAmount').value);
-        if (!payAmt || payAmt <= 0) return UI.toast('أدخل مبلغاً صحيحاً', 'error');
-        if (payAmt > totalRemaining) return UI.toast('المبلغ المدخل أكبر من إجمالي المتبقي!', 'error');
-        
-        let remainingToPay = payAmt;
-        const allImports = DB.get(DB.KEYS.imports, []);
-        let modifiedCount = 0; // لمعرفة هل تم تعديل شيء فعلاً
-
-        try {
-          for (const inv of imports) {
-            if (remainingToPay <= 0) break;
-            
-            // تم إصلاح هذه النقطة: استخدام String() لتجنب مشكلة اختلاف أنواع البيانات
-            const idx = allImports.findIndex(i => String(i.import_id) === String(inv.import_id));
-            if (idx < 0) continue;
-
-            const invRemain = Number(allImports[idx].residual_amount);
-            const amountForThisInv = Math.min(remainingToPay, invRemain);
-
-            allImports[idx].paid_amount = Number(allImports[idx].paid_amount || 0) + amountForThisInv;
-            allImports[idx].residual_amount = invRemain - amountForThisInv;
-            
-            // مزامنة السحابة (إذا كانت الدالة موجودة)
-            if (typeof DB.cloudSync === 'function') {
-              DB.cloudSync('imports', allImports[idx].import_id, allImports[idx]);
-            }
-            
-            remainingToPay -= amountForThisInv;
-            modifiedCount++;
-          }
-
-          // إذا لم يتم تعديل أي فاتورة بسبب خطأ في المطابقة
-          if (modifiedCount === 0) {
-            return UI.toast('⚠️ خطأ: لم يتم العثور على الفواتير المطابقة للتسديد', 'error');
-          }
-
-          DB.set(DB.KEYS.imports, allImports); // حفظ في الذاكرة المحلية
-          UI.toast('✅ تم تسديد المبلغ وتوزيعه على الفواتير', 'success');
-          close();
-          
-          // تحديث النافذة بعد الإغلاق بقليل
-          setTimeout(() => this.viewSupplierDetails(merchantName), 500); 
-        } catch (error) {
-          console.error("خطأ أثناء التسديد:", error);
-          UI.toast('حدث خطأ غير متوقع أثناء التسديد', 'error');
-        }
-      };
-    }
+      <!-- تم تغيير الزر ليعمل مباشرة -->
+      <button class="btn btn-primary btn-block" onclick="Shop.executeSupplierPayment('${UI.esc(merchantName)}', ${totalRemaining})" style="background:#10B981;">تأكيد السداد</button>
+    `
   });
+},
+
+// الدالة الجديدة التي ستنفذ السداد عند الضغط على الزر
+executeSupplierPayment(merchantName, totalRemaining) {
+  const input = document.getElementById('supplierPayAmount');
+  if (!input) return UI.toast('حدث خطأ في قراءة المبلغ', 'error');
+  
+  let payAmt = Number(input.value);
+  if (!payAmt || payAmt <= 0) return UI.toast('أدخل مبلغاً صحيحاً', 'error');
+  if (payAmt > totalRemaining) return UI.toast('المبلغ المدخل أكبر من إجمالي المتبقي!', 'error');
+  
+  const imports = DB.getImports(this.client.num)
+    .filter(i => i.merchant_name === merchantName && Number(i.residual_amount) > 0)
+    .sort((a,b) => new Date(a.import_date) - new Date(b.import_date));
+
+  let remainingToPay = payAmt;
+  const allImports = DB.get(DB.KEYS.imports, []);
+  let modifiedCount = 0; 
+
+  try {
+    for (const inv of imports) {
+      if (remainingToPay <= 0) break;
+      
+      // مطابقة النص بالرقم لضمان عدم حدوث خطأ
+      const idx = allImports.findIndex(i => String(i.import_id) === String(inv.import_id));
+      if (idx < 0) continue;
+
+      const invRemain = Number(allImports[idx].residual_amount);
+      const amountForThisInv = Math.min(remainingToPay, invRemain);
+
+      allImports[idx].paid_amount = Number(allImports[idx].paid_amount || 0) + amountForThisInv;
+      allImports[idx].residual_amount = invRemain - amountForThisInv;
+      
+      if (typeof DB.cloudSync === 'function') {
+        DB.cloudSync('imports', allImports[idx].import_id, allImports[idx]);
+      }
+      
+      remainingToPay -= amountForThisInv;
+      modifiedCount++;
+    }
+
+    if (modifiedCount === 0) {
+      return UI.toast('⚠️ خطأ: لم يتم العثور على الفواتير المطابقة للتسديد', 'error');
+    }
+
+    DB.set(DB.KEYS.imports, allImports); 
+    UI.toast('✅ تم تسديد المبلغ وتوزيعه على الفواتير', 'success');
+    
+    // إغلاق النافذة المنبثقة
+    const modal = document.getElementById('ft-modal');
+    if (modal) modal.remove();
+
+    // تحديث كشف الحساب فوراً
+    setTimeout(() => this.viewSupplierDetails(merchantName), 500); 
+  } catch (error) {
+    console.error("خطأ أثناء التسديد:", error);
+    UI.toast('حدث خطأ غير متوقع أثناء التسديد', 'error');
+  }
 },
 
 showDeleteSupplierInvoicesMenu(merchantName) {
