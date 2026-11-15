@@ -312,6 +312,7 @@ const Admin = {
             else if (act === 'delete') this.deleteUser(num);
             else if (act === 'check') this.checkClientDetails(num);
             else if (act === 'pay') this.addPaymentMenu(num);
+            else if (act === 'clear_client_invoices') this.showClearClientInvoicesMenu(num);
           };
         });
       }
