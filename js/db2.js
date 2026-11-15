@@ -1363,7 +1363,7 @@ function massDeleteOldImports(timeframe) {
     getSalesByPeriod, getDebtPaidTotal, getImportsByPeriod, getProfitsByPeriod,
     getBestSellingProduct, getProductMovement, getAdvancedAnalytics,
     getAiSubscriptionStatus, requestAiTrial, createAiSubRequest, grantAiSubscription, resetAiSubscription, massResetFree,
-    deleteNotification, clearNotifications, deleteOldInvoices,  cloudSync,
+    deleteNotification, clearNotifications, deleteOldInvoices,  cloudSync,massDeleteOldImports,
   };
 })();
 
