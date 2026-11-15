@@ -7,6 +7,8 @@ const AIAssistant = {
   init() {
     this.client = UI.requireLogin();
     if (!this.client) return;
+      // ✅ السطر الجديد: التحقق من اشتراك النظام أولاً (المفتاح الرئيسي)
+    if (!UI.requireActiveSubscription(this.client)) return;
     document.getElementById('userAvatar').textContent = this.client.name.charAt(0);
     document.getElementById('userName').textContent = this.client.name;
     document.getElementById('userRole').textContent = this.client.account_type || 'مستخدم';
