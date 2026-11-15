@@ -1334,7 +1334,7 @@ const DB = (() => {
     getSalesByPeriod, getDebtPaidTotal, getImportsByPeriod, getProfitsByPeriod,
     getBestSellingProduct, getProductMovement, getAdvancedAnalytics,
     getAiSubscriptionStatus, requestAiTrial, createAiSubRequest, grantAiSubscription, resetAiSubscription, massResetFree,
-    deleteNotification, clearNotifications, deleteOldInvoices,
+    deleteNotification, clearNotifications, deleteOldInvoices,  cloudSync,
   };
 })();
 
