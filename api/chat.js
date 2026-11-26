@@ -4,19 +4,18 @@ export default async function handler(req, res) {
   }
   
   const { message, history, dataContext } = req.body; 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   
   if (!apiKey) {
-    return res.status(500).json({ error: 'API Key is missing in Vercel settings' });
+    return res.status(500).json({ error: 'مفتاح OpenRouter غير موجود في إعدادات Vercel' });
   }
   
-  const contents = [];
+  const messages = [];
   if (history && history.length > 0) {
     history.forEach(msg => {
-      contents.push({ role: msg.role === 'user' ? 'user' : 'model', parts: [{ text: msg.text }] });
+      messages.push({ role: msg.role === 'user' ? 'user' : 'assistant', content: msg.text });
     });
   }
-  contents.push({ role: 'user', parts: [{ text: message }] });
 
   let systemPrompt = "";
   if (dataContext) {
@@ -24,9 +23,11 @@ export default async function handler(req, res) {
       أنت المساعد الذكي لنظام "FT" داخل لوحة تحكم العميل. 
       أنت خبير في تحليل البيانات وإدارة المتاجر والديون.
       تجيب على أسئلة العميل بلهجته وبنفس لغته، وتكون دقيقاً جداً في الأرقام.
-      \n\n⚠️ هام جداً: هذه هي البيانات الحالية الحقيقية للعميل:
+      
+      ⚠️ هام جداً: هذه هي البيانات الحالية الحقيقية للعميل:
       ${dataContext}
-      \n\nبناءً على هذه البيانات، أجب على سؤال العميل بدقة. لا تخترع أرقاماً من عندك.
+      
+      بناءً على هذه البيانات، أجب على سؤال العميل بدقة. لا تخترع أرقاماً من عندك.
     `;
   } else {
     systemPrompt = `
@@ -47,32 +48,36 @@ export default async function handler(req, res) {
     `;
   }
 
+  messages.unshift({ role: 'system', content: systemPrompt });
+  messages.push({ role: 'user', content: message });
+
   try {
-    // ✅ تم العودة إلى النموذج الصحيح والمدعوم: gemini-3.8-flash
-    const fetchPromise = fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`, {
+    const fetchPromise = fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json' 
+      },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: contents
+        model: 'meta-llama/llama-3.3-70b-instruct:free',
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 1024
       })
     });
     
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('API Timeout')), 60000)
+      setTimeout(() => reject(new Error('API Timeout')), 15000)
     );
 
     const response = await Promise.race([fetchPromise, timeoutPromise]);
     const data = await response.json();
     
     if (!response.ok) {
-      if (data.error?.message && data.error.message.includes('high demand')) {
-        throw new Error('المساعد يواجه ضغطاً كبيراً، يرجى المحاولة بعد دقائق.');
-      }
-      throw new Error(data.error?.message || 'Error from Gemini API');
+      throw new Error(data.error?.message || 'خطأ من OpenRouter API');
     }
     
-    const aiResponse = data.candidates[0].content.parts[0].text;
+    const aiResponse = data.choices[0].message.content;
     return res.status(200).json({ reply: aiResponse });
     
   } catch (error) {
